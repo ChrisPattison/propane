@@ -5,36 +5,57 @@
 #include <iomanip>
 #include <algorithm>
 
-void FpgaPopulationAnnealing::Sweep(StateVector& replica, int moves) {
-    // Pack bit vector for now...
-    std::vector<std::uint32_t> packed_replica((replica.size() + 31)/32);
+FpgaPopulationAnnealing::Resample(double new_beta) {
+    // TODO: add in support for padding on the end
+    
+    std::vector<double> energy(population_.size() * 64);
+    std::fill(energy.begin(), energy.end(), 0.0);
 
-    for(int j = 0; j < packed_replica.size(); ++j) {
-        packed_replica[j] = 0;
-        for(int i = 0; i < 32; ++i) {
-            int spin = j*32 + i;
-            packed_replica[j] >>= 1;
-            if(spin < replica.size() && replica(spin) == 1) {
-                packed_replica[j] |= 0x80000000;
+    // Compute energy of each replica
+    for(int k = 0; k < structure_.Adjacent().outerSize(); ++k) {
+        for(Eigen::SparseTriangularView<Eigen::SparseMatrix<EdgeType>,Eigen::Upper>::InnerIterator 
+            it(structure_.Adjacent().triangularView<Eigen::Upper>(), k); it; ++it) {
+            for(i = 0; i < population_.begin().size(); ++i) {
+                for(int j = 0; j < 64; ++j) {
+                    index = i*64 + j;
+                    energy[index] += 
+                        ((population_[k][i] >> j) | 0x01 ? 1 : -1)
+                        * ((population_[it.index()][i] >> j) | 0x01 ? 1 : -1)
+                        * it.value();
+                }
             }
         }
     }
 
-    driver_.Sweep(&packed_replica, static_cast<std::uint32_t>(moves));
+    // Compute resampling weights (suitability)
+    std::vector<double> weights(energy.size());
+    std::transform(energy.begin(), energy.end(), weights.begin(), [&](double energy) 
+        {return std::exp(-(new_beta-beta_) * energy);});
 
-    for(int i = 0; i < replica.size(); ++i) {
-        int shift = i % 32;
-        replica[i] = packed_replica[i/32] & (1 << shift) ? 1 : -1;
+    double summed_weights = std::accumulate(weights.begin(), weights.end(), 0.0);
+    double normalize = average_population_ / summed_weights;
+
+    // Determine number of copies of each replica
+    std::vector<int> num_replicas(energy.size());
+    std::transform(weights.begin(), weights.end(), num_replicas.begin(), [&](double weight) 
+        {return weight - std::floor(weight)) > rng_.Probability() ? std::ceil(weight) : std::floor(weight);});
+
+    // Copy spins to new vector, copy families to new vector
+    int new_size = std::accumulate(num_replicas.begin(), num_replicas.end(), 0);
+    // Number of uint64_t required to store packed spins
+    int packed_size = new_size/64 + (new_size % 64 != 0);
+    // Make allocations
+    StateVectorPack new_population(population_.size());
+    std::for_each(new_population.begin(), new_population.end(), [&](auto& v) { v.resize(packed_size); });
+    std::vector<int> new_families(new_size);
+
+    // Make copies
+    for(i = 0; i < new_population.size(); ++i) {
+        for(j = 0; j < packed_size; ++j) {
+            std::uint64_t new_pack
+            for(k = 0; k < 64; ++k) {
+
+            }
+        }
     }
-}
-
-double FpgaPopulationAnnealing::Resample(double new_beta) {
-    driver_.SetProb(new_beta);
-    return PopulationAnnealing::Resample(new_beta);
-}
-
-FpgaPopulationAnnealing::FpgaPopulationAnnealing(Graph& structure, Config schedule) : PopulationAnnealing(structure, schedule) {
-    driver_.SeedRng(rng_.GetSeed());
-    driver_.SetGraph(structure_);
-    driver_.SetProb(0.0);
 }

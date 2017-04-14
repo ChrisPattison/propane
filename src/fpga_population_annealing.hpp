@@ -6,14 +6,22 @@
 #include <Eigen/Dense>
 
 /** Accelerated Implementation of Population Annealing Monte Carlo.
+ * This implementation stores spin data very differently than the others due to the need to offload to the FPGA
+ * population_ has dimensions num(spins) x num(replicas/64)
  */
-class FpgaPopulationAnnealing : public PopulationAnnealing{
+class FpgaPopulationAnnealing : public PopulationAnnealingBase {
     MonteCarloDriver driver_;
 public:
 protected:
+    Graph structure_;
+    RandomNumberGenerator rng_;
 
-using SpinPack = std::array<std::uint64_t, 4>;
-using StateVectorPack = Eigen::Matrix<SpinPack, Eigen::Dynamic, 1>;
+    using SpinPack = std::vector<std::uint64_t>;
+    using StateVectorPack = std::vector<SpinPack>;
+
+    StateVectorPack population_;
+
+    std::vector<Schedule> schedule_;
 
 /** Carries out moves monte carlo sweeps of all replicas on the accelerator.
  */
