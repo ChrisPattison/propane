@@ -5,15 +5,18 @@
 #include "graph.hpp"
 #include "random_number_generator.hpp"
 #include "population_annealing_base.hpp"
+#include "log_lookup.hpp"
 #include <Eigen/Dense>
 
+namespace propane 
+{    
 /** Implementation of Population Annealing Monte Carlo.
  * Replicas have an associated entry in the family vector indicating lineage.
  */
 class PopulationAnnealing : public PopulationAnnealingBase {
 protected:
-    int const lookup_table_size_ = 1024;
-    std::vector<double> log_lookup_table_;
+    util::LogLookup log_lookup_;
+
 protected:
     Graph structure_;
 
@@ -28,10 +31,6 @@ protected:
     std::vector<Schedule> schedule_;
     double beta_;
 
-    double population_ratio_;
-    double population_slope_;
-    double population_shift_;
-
 /** Determinstically builds a list of replicas with different Markov Chains.
  */
     std::vector<std::pair<int, int>> BuildReplicaPairs();
@@ -44,27 +43,24 @@ protected:
  * If the probability is inside the bound given by the look table, 
  * true exponetnial is computed and compared.
  */
-    bool AcceptedMove(double delta_energy);
+    virtual bool AcceptedMove(double delta_energy);
 /** Returns the energy of a replica
  * Implemented as the sum of elementwise multiplication of the replica vector with the 
  * product of matrix multiplication between the upper half of the adjacency matrix
  * and the replica.
  */
-    double Hamiltonian(StateVector& replica);
+    virtual double Hamiltonian(StateVector& replica);
 /** Returns the energy change associated with flipping spin vertex.
  * Implemented as the dot product of row vertex of the adjacency matrix 
  * with the replica vector multiplied by the spin at vertex.
  */
-    double DeltaEnergy(StateVector& replica, int vertex); 
+    virtual double DeltaEnergy(StateVector& replica, int vertex); 
 /** Carries out moves monte carlo sweeps of replica.
  */
-    void MonteCarloSweep(StateVector& replica, int moves);
+    virtual void MonteCarloSweep(StateVector& replica, int moves);
 /** Returns true if a move may be made that reduces the total energy.
  */
     bool IsLocalMinimum(StateVector& replica);
-/** Greadily attempts to find ground state i.e. T=0.
- */
-    StateVector Quench(const StateVector& replica);
 /** Returns the overlap between replicas alpha and beta.
  */
     double Overlap(StateVector& alpha, StateVector& beta);
@@ -80,13 +76,7 @@ protected:
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
  */
-    double Resample(double new_beta);
-/** Returns new population size
- * Uses a logistic curve with parameters given in input file
- * This probably will be removed in the future with preference given 
- * to the current method of specifying beta schedules (one per temperature)
- */
-    int NewPopulation(double new_beta);
+    virtual double Resample(double new_beta, double new_population_fraction);
 public:
 
     PopulationAnnealing() = delete;
@@ -100,3 +90,4 @@ public:
  */
     std::vector<Result> Run();
 };
+}

@@ -1,4 +1,8 @@
+#pragma once
+#include <vector>
 
+namespace propane 
+{
 class PopulationAnnealingBase {
     public:
 /** Observables for a single step.
@@ -31,15 +35,17 @@ class PopulationAnnealingBase {
         int sweeps = 10;
         bool overlap_dist = false;
         bool energy_dist = false;
+        double population_fraction = 1.0;
     };
 /** Parameters for entire run.
  */
     struct Config {
         int population;
         std::uint64_t seed;
-        std::vector<PopulationAnnealing::Schedule> schedule;
+        std::vector<PopulationAnnealingBase::Schedule> schedule;
         double population_ratio;
         double population_slope;
         double population_shift;
     };
+};
 }

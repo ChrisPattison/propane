@@ -5,6 +5,8 @@
 #include "monte_carlo_driver.hpp"
 #include <Eigen/Dense>
 
+namespace propane
+{
 /** Accelerated Implementation of Population Annealing Monte Carlo.
  * This implementation stores spin data very differently than the others due to the need to offload to the FPGA
  * population_ has dimensions num(spins) x num(replicas/64)
@@ -28,7 +30,7 @@ protected:
     void Sweep(int moves);
 /** Returns true if a move may be made that reduces the total energy.
  */
-    double Resample(double new_beta);
+    double Resample(double new_beta, double population_fraction);
 /** Returns new population size
  * Uses a logistic curve with parameters given in input file
  * This probably will be removed in the future with preference given 
@@ -46,3 +48,4 @@ public:
 /** Run solver and return results.
  */
 };
+}

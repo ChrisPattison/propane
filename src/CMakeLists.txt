@@ -22,11 +22,18 @@ add_executable(
     parallel_population_annealing.cpp 
     parallel.cpp 
     population_annealing.cpp 
-    utilities.cpp 
+    string_util.cpp 
     parallel_types.cpp 
     compare.cpp
+    log_lookup.cpp
     monte_carlo_driver.cpp
     fpga_population_annealing.cpp
+    greedy_population_annealing.cpp
+)
+
+install(TARGETS propane 
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
 )
 
 set_target_properties(propane PROPERTIES

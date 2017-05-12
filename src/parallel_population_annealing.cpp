@@ -10,10 +10,12 @@
 #include <functional>
 #include <chrono>
 
+namespace propane
+{
 void ParallelPopulationAnnealing::CombineHistogram(std::vector<Result::Histogram>& target, const std::vector<Result::Histogram>& source) {
     for(auto bin : source) {
-        auto it = std::lower_bound(target.begin(), target.end(), bin, [&](const Result::Histogram& a, const Result::Histogram& b) { return a.bin < b.bin && !FuzzyCompare(a.bin, b.bin); });
-        if(it==target.end() || !FuzzyCompare(bin.bin, it->bin)) {
+        auto it = std::lower_bound(target.begin(), target.end(), bin, [&](const Result::Histogram& a, const Result::Histogram& b) { return a.bin < b.bin && !util::FuzzyCompare(a.bin, b.bin); });
+        if(it==target.end() || !util::FuzzyCompare(bin.bin, it->bin)) {
             target.insert(it, bin);
         } else {
             it->value += bin.value;
@@ -64,7 +66,7 @@ std::vector<ParallelPopulationAnnealing::Result> ParallelPopulationAnnealing::Ru
         auto time_start = std::chrono::high_resolution_clock::now();
         // Population Annealing
         if(step.beta != beta_) {
-            observables.norm_factor = Resample(step.beta);
+            observables.norm_factor = Resample(step.beta, step.population_fraction);
             auto redist_time_start = std::chrono::high_resolution_clock::now();
             Redistribute();
             observables.redist_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - redist_time_start).count();
@@ -101,7 +103,7 @@ std::vector<ParallelPopulationAnnealing::Result> ParallelPopulationAnnealing::Ru
 
         // number of replicas with energy = ground energy
         observables.grounded_replicas = parallel_.HeirarchyReduce<double>(
-            energy_map.size() ? energy_map.array().unaryExpr([&](double E) { return FuzzyCompare(E, observables.ground_energy) ? 1 : 0; }).sum() : 0,
+            energy_map.size() ? energy_map.array().unaryExpr([&](double E) { return util::FuzzyCompare(E, observables.ground_energy) ? 1 : 0; }).sum() : 0,
             [](std::vector<double>& v) { return std::accumulate(v.begin(), v.end(), 0.0, std::plus<double>()); });
 
         // Family Statistics
@@ -199,8 +201,8 @@ std::vector<ParallelPopulationAnnealing::Result> ParallelPopulationAnnealing::Ru
     return results;
 }
 
-double ParallelPopulationAnnealing::Resample(double new_beta) {
-    average_node_population_ = NewPopulation(new_beta) / parallel_.size();
+double ParallelPopulationAnnealing::Resample(double new_beta, double population_fraction) {
+    average_node_population_ = population_fraction * init_population_ / parallel_.size();
     average_population_ = average_node_population_ * parallel_.size();
 
     std::vector<StateVector> resampled_replicas;
@@ -403,4 +405,5 @@ std::vector<double> ParallelPopulationAnnealing::FamilyCount() {
     std::vector<double> result(local_families.size());
     std::transform(local_families.begin(), local_families.end(), result.begin(), [](const Family& f) { return static_cast<double>(f.count); });
     return result;
+}
 }

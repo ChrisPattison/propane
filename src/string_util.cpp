@@ -1,9 +1,9 @@
-#include "utilities.hpp"
+#include "string_util.hpp"
 #include <algorithm>
 #include <iterator>
 #include <iostream>
 
-namespace utilities 
+namespace propane::util 
 {
 void Check(bool cond, const char* err) {
     if(!cond) {

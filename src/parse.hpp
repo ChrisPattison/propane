@@ -5,7 +5,7 @@
 #include <string>
 #include <cstdint>
 
-namespace io 
+namespace propane::io 
 {
 static constexpr std::size_t kBufferSize = 1024; // size of input buffer
 static constexpr std::size_t kReservedVertices = 6; // average number of edges per vertex

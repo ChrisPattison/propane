@@ -1,5 +1,8 @@
 #include "graph.hpp"
 
+namespace propane
+{
+
 void Graph::Resize(int no_vertices, int no_couplers) {
     fields_.resize(no_vertices);
     fields_.setZero();
@@ -53,4 +56,5 @@ int Graph::size() const {
 
 int Graph::edges() const {
     return adjacent_.nonZeros() / 2;
+}
 }

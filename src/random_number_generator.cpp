@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cassert>
 
+namespace propane
+{
 RandomNumberGenerator::RandomNumberGenerator(std::uint64_t seed) {
     seed_ = seed;
     state_ = new dsfmt_t;
@@ -66,4 +68,5 @@ std::uint64_t RandomNumberGenerator::GetSeed() {
 
 int RandomNumberGenerator::Range(int N) {
     return std::floor(Probability() * N);
+}
 }

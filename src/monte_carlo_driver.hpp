@@ -5,6 +5,8 @@
 #include <functional>
 #include "graph.hpp"
 
+namespace propane
+{
 /** Driver for Hardware Monte Carlo accelerator
  */
 class MonteCarloDriver {
@@ -63,3 +65,4 @@ public:
  */
     void SetProb(double beta);
 };
+}

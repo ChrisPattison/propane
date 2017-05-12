@@ -36,6 +36,6 @@ endif()
 
 message("* Current build type is : ${CMAKE_BUILD_TYPE}")
 
-subdirs(src doc)
+subdirs(src doc test)
 
 message("* Build docs with 'make doc'")

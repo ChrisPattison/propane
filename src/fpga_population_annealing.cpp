@@ -5,7 +5,9 @@
 #include <iomanip>
 #include <algorithm>
 
-FpgaPopulationAnnealing::Resample(double new_beta) {
+namespace propane
+{
+FpgaPopulationAnnealing::Resample(double new_beta, double population_fraction) {
     // TODO: add in support for padding on the end
     
     std::vector<double> energy(population_.size() * 64);
@@ -58,4 +60,5 @@ FpgaPopulationAnnealing::Resample(double new_beta) {
             }
         }
     }
+}
 }

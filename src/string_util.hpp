@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-namespace utilities 
+namespace propane::util
 {
 /** Basic implemention of assert used for validating inputs.
 */

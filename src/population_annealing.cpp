@@ -9,6 +9,8 @@
 #include <numeric>
 #include <chrono>
 
+namespace propane
+{
 // Fix this to do something with the single replicas
 std::vector<std::pair<int, int>> PopulationAnnealing::BuildReplicaPairs() {
     std::vector<std::pair<int, int>> pairs;
@@ -39,8 +41,8 @@ std::vector<std::pair<int, int>> PopulationAnnealing::BuildReplicaPairs() {
 std::vector<PopulationAnnealing::Result::Histogram> PopulationAnnealing::BuildHistogram(const std::vector<double>& samples) {
     std::vector<Result::Histogram> hist;
     for(auto v : samples) {
-        auto it = std::lower_bound(hist.begin(), hist.end(), v, [&](const Result::Histogram& a, const double& b) { return a.bin < b && !FuzzyCompare(a.bin, b); });
-        if(it==hist.end() || !FuzzyCompare(v, it->bin)) {
+        auto it = std::lower_bound(hist.begin(), hist.end(), v, [&](const Result::Histogram& a, const double& b) { return a.bin < b && !util::FuzzyCompare(a.bin, b); });
+        if(it==hist.end() || !util::FuzzyCompare(v, it->bin)) {
             hist.insert(it, {v, 1.0});
         } else {
             it->value++;
@@ -75,15 +77,6 @@ PopulationAnnealing::PopulationAnnealing(Graph& structure, Config config) {
     structure_.Adjacent().makeCompressed();
     average_population_ = config.population;
     init_population_ = average_population_;
-    
-    population_ratio_ = config.population_ratio;
-    population_slope_ = config.population_slope;
-    population_shift_ = config.population_shift;
-    
-    log_lookup_table_.resize(lookup_table_size_);
-    for(int k = 0; k < log_lookup_table_.size(); ++k) {
-        log_lookup_table_[k] = std::log(static_cast<double>(k) / (log_lookup_table_.size() - 1));
-    }
  }
 
 double PopulationAnnealing::Hamiltonian(StateVector& replica) {
@@ -119,20 +112,6 @@ bool PopulationAnnealing::IsLocalMinimum(StateVector& replica) {
         }
     }
     return true;
-}
-
-PopulationAnnealing::StateVector PopulationAnnealing::Quench(const StateVector& replica) {
-    const std::size_t sweeps = 4;
-    StateVector quenched_replica = replica;
-    do {
-        for(std::size_t k = 0; k < sweeps * quenched_replica.size(); ++k) {
-            int vertex = rng_.Range(quenched_replica.size());
-            if(DeltaEnergy(quenched_replica, vertex) < 0) {
-                quenched_replica(vertex) *= -1;
-            }
-        }
-    }while(!IsLocalMinimum(quenched_replica));
-    return quenched_replica;
 }
 
 double PopulationAnnealing::Overlap(StateVector& alpha, StateVector& beta) {
@@ -173,7 +152,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
 
         auto time_start = std::chrono::high_resolution_clock::now();
         if(step.beta != beta_) {
-            observables.norm_factor = Resample(step.beta);
+            observables.norm_factor = Resample(step.beta, step.population_fraction);
         }
         for(std::size_t k = 0; k < replicas_.size(); ++k) {
             MonteCarloSweep(replicas_[k], step.sweeps);
@@ -239,27 +218,25 @@ bool PopulationAnnealing::AcceptedMove(double delta_energy) {
     double test = rng_.Probability();
 
     // Compute bound on log of test number
-    int lower_index = std::floor(test * (log_lookup_table_.size() - 1));
-    double test_log_lower_bound = log_lookup_table_.at(lower_index);
-    double test_log_upper_bound = log_lookup_table_.at(lower_index+1);
+    auto bound = log_lookup_(test);
 
     // return acceptance_prob_exp > log(test);
-    if(test_log_upper_bound < acceptance_prob_exp) {
+    if(bound.upper < acceptance_prob_exp) {
         return true;
-    }else if(test_log_lower_bound > acceptance_prob_exp) {
+    }else if(bound.lower > acceptance_prob_exp) {
         return false;
     }
     // Compute exp if LUT can't resolve it
     return std::exp(acceptance_prob_exp) > test;
 }
 
-double PopulationAnnealing::Resample(double new_beta) {
+double PopulationAnnealing::Resample(double new_beta, double new_population_fraction) {
     std::vector<StateVector> resampled_replicas;
     std::vector<int> resampled_families;
     resampled_replicas.reserve(replicas_.size());
     resampled_families.reserve(replicas_.size());
 
-    average_population_ = NewPopulation(new_beta);
+    average_population_ = new_population_fraction * init_population_;
 
     Eigen::VectorXd weighting(replicas_.size());
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
@@ -282,9 +259,4 @@ double PopulationAnnealing::Resample(double new_beta) {
     replica_families_ = resampled_families;
     return summed_weights;
 }
-
-int PopulationAnnealing::NewPopulation(double new_beta) {
-    double S = 1.0/population_ratio_;
-    double L = (1.0 - S) * (1.0 + std::exp(-population_slope_*population_shift_));
-    return static_cast<int>(init_population_ * (L/(1.0+std::exp(population_slope_*(new_beta-population_shift_))) + S));
 }

@@ -6,7 +6,7 @@
 #include "compare.hpp"
 #include "parallel.hpp"
 
-namespace io {   
+namespace propane::io {   
 void Header(Graph& model, std::string config_path, std::string bond_path) {
     std::cout << "# Parallel Optimized Population Annealing V" << version::kMajor << "." << version::kMinor << std::endl;
     std::cout << "# C. Pattison" << std::endl;
@@ -19,7 +19,7 @@ void Header(Graph& model, std::string config_path, std::string bond_path) {
 }
 
 void MpiHeader(parallel::Mpi& parallel) {
-    utilities::Check(parallel.size() % 4 == 0, "Number of cores must be a multiple of 4");
+    util::Check(parallel.size() % 4 == 0, "Number of cores must be a multiple of 4");
     std::cout << "# Cores: " << parallel.size() << std::endl;
 }
 
@@ -103,7 +103,7 @@ void IjjDump(Graph& model, std::ostream& stream) {
             it(model.Adjacent().triangularView<Eigen::Upper>(), k); it; ++it) {
             double value = kOutputCouplerCoeff * it.value();
             stream << k << kOutputSeperator << it.index() << kOutputSeperator;
-            if(FuzzyUlpCompare(value, std::lrint(value), 100)) {
+            if(util::FuzzyUlpCompare(value, std::lrint(value), 100)) {
                 stream << std::lrint(value);
             }else {
                 stream << value;
@@ -116,7 +116,7 @@ void IjjDump(Graph& model, std::ostream& stream) {
         for(std::size_t k = 0; k < model.Fields().size(); ++k) {
             stream << k << kOutputSeperator << k << kOutputSeperator;
             double value = kOutputCouplerCoeff * model.Fields()[k];
-            if(FuzzyUlpCompare(value, std::lrint(value), 100)) {
+            if(util::FuzzyUlpCompare(value, std::lrint(value), 100)) {
                 stream << std::lrint(value);
             }else {
                 stream << value;

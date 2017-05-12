@@ -1,10 +1,11 @@
 #pragma once
 
-namespace version
+namespace propane::version
 {
 static const int kMajor = @PROPANE_VERSION_MAJOR@;
 static const int kMinor = @PROPANE_VERSION_MINOR@;
 static const auto kRefSpec = "@GIT_REFSPEC@";
 static const auto kCommitHash = "@GIT_SHA1@";
 static const auto kBuildTime = "@BUILD_TIME@";
+static const auto kBuildType = "@CMAKE_BUILD_TYPE@";
 }
