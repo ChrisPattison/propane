@@ -4,6 +4,10 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <numeric>
+#include <chrono>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 namespace propane
 {
@@ -71,7 +75,6 @@ std::vector<FpgaPopulationAnnealing::Result> FpgaPopulationAnnealing::Run() {
             // Overlap
             std::vector<std::pair<int, int>> overlap_pairs = BuildReplicaPairs();
             std::vector<double> overlap_samples(overlap_pairs.size());
->
             std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
                 [&](std::pair<int, int> p){return Overlap(replicas_[p.first], replicas_[p.second]);});
             observables.overlap = BuildHistogram(overlap_samples);
@@ -88,41 +91,61 @@ std::vector<FpgaPopulationAnnealing::Result> FpgaPopulationAnnealing::Run() {
     return results;
 }
 
-FpgaPopulationAnnealing::FpgaPopulationAnnealing(Graph& structure, Config config) {
+FpgaPopulationAnnealing::FpgaPopulationAnnealing(Graph& structure, Config config) : PopulationAnnealing::PopulationAnnealing(structure, config) {
+    // Replace these exceptions with better handling later
     // mmap bars
     cfg_disc_ = open("/sys/bus/pci/devices/0000:81:00.0/resource0", O_RDWR | O_SYNC);
-    cfg_bar_ = reinterpret_cast<volatile std::std::uint32_t*>(mmap(nullptr, , PROT_READ | PROT_WRITE, MAP_SHARED, cfg_disc_, 0));
+    cfg_bar_ = reinterpret_cast<volatile std::uint32_t*>(mmap(nullptr, 32, PROT_READ | PROT_WRITE, MAP_SHARED, cfg_disc_, 0));
     if(!cfg_bar_) {
-        throw std::exception("mmap failed.");
+        throw std::runtime_error("mmap failed.");
     }
     
-    mdl_disc_ = open("/sys/bus/pci/devices/0000:81:00.0/resource0", O_RDWR | O_SYNC);
-    mdl_bar_ = reinterpret_cast<volatile std::std::uint32_t*>(mmap(nullptr, , PROT_READ | PROT_WRITE, MAP_SHARED, mdl_disc_, 0));
+    mdl_disc_ = open("/sys/bus/pci/devices/0000:81:00.0/resource2", O_RDWR | O_SYNC);
+    mdl_bar_ = reinterpret_cast<volatile std::uint32_t*>(mmap(nullptr, 32, PROT_READ | PROT_WRITE, MAP_SHARED, mdl_disc_, 0));
     if(!mdl_bar_) {
-        throw std::exception("mmap failed.");
+        throw std::runtime_error("mmap failed.");
     }
 
-    mem_disc = open("/sys/bus/pci/devices/0000:81:00.0/resource0", O_RDWR | O_SYNC);
-    mem_bar_ = reinterpret_cast<volatile std::std::uint32_t*>(mmap(nullptr, , PROT_READ | PROT_WRITE, MAP_SHARED, mem_disc_, 0));
+    mem_disc_ = open("/sys/bus/pci/devices/0000:81:00.0/resource4", O_RDWR | O_SYNC);
+    mem_bar_ = reinterpret_cast<volatile std::uint64_t*>(mmap(nullptr, 1024*1024, PROT_READ | PROT_WRITE, MAP_SHARED, mem_disc_, 0));
     if(!mem_bar_) {
-        throw std::exception("mmap failed.");
+        throw std::runtime_error("mmap failed.");
     }
-    // load configuration
 
+    // load configuration
+    if(structure.size() > kMaxSpins) {
+        throw std::runtime_error("Maximum spin capacity exceeded.");
+    }
+
+    // Zero out data
+    std::fill_n(mdl_bar_, 2*kConnect*kMaxSpins, 0);
+
+    for(std::size_t k = 0; k < structure_.Adjacent().outerSize(); ++k) {
+        int i = 0; // This is really dirty
+        for(Eigen::SparseMatrix<EdgeType>::InnerIterator it(structure_.Adjacent(), k); it; ++it) {
+            // Stored in j, J_ij
+            mdl_bar_[k*2*kConnect+i] = it.index();
+            mdl_bar_[k*2*kConnect+i+1] = it.value();
+            i += 2;
+        }
+    }
+
+    cfg_bar_[kSeed] = static_cast<std::uint32_t>(rng_.RandomSeed());
+    cfg_bar_[kSpinCount] = structure_.size();
 }
 
-FpgaPopulationAnnealing::SweepPopulation(int sweeps) {
+void FpgaPopulationAnnealing::SweepPopulation(int sweeps) {
     int base_pointer = 0;
 
     for(int k = 0; k <= replicas_.size() / 64; k++) {
-        std::vector<std::uint64_t> replica_pack(replicas_.front().size());
+        std::vector<std::uint64_t> replica_pack(structure_.size());
         // Package replicas
         for(int i = 0; i < replica_pack.size(); ++i) {
             replica_pack[i] = 0;
             // Assemble single package
             for(int j = 0; j < 64; ++j) {
                 replica_pack[j] <<= 1;
-                if(j + k*64 < replicas.size()) {
+                if(j + k*64 < replicas_.size()) {
                     replica_pack[j] |= replicas_[k*64+j](i) == 1 ? 1 : 0;
                 }
             }
@@ -149,7 +172,7 @@ FpgaPopulationAnnealing::SweepPopulation(int sweeps) {
 
     // Unpack
     for(int k = 0; k <= replicas_.size() / 64; k++) {
-        std::vector<std::uint64_t> replica_pack(replicas_.front().size());
+        std::vector<std::uint64_t> replica_pack(structure_.size());
         
         // Copy froms accelerator memory
         for(int i = 0; i < replica_pack.size(); ++i) {
@@ -160,7 +183,7 @@ FpgaPopulationAnnealing::SweepPopulation(int sweeps) {
         for(int i = replica_pack.size()-1; i >= 0; --i) {
             for(int j = 0; j < 64; ++j) {
                 replica_pack[j] >>= 1;
-                if(j + k*64 < replicas.size()) {
+                if(j + k*64 < replicas_.size()) {
                     replicas_[k*64+j](i) = replica_pack[j] & 1 ? 1 : -1;
                 }
             }

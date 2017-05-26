@@ -30,13 +30,18 @@ private:
     const int kSeed = 3;
     const int kSweeps = 4;
     const int kBeta = 5;
+
+    const int kConnect = 4;
+    const int kMaxSpins = 4096;
+
+    int mem_disc_;
+    int mdl_disc_;
+    int cfg_disc_;
 protected:
     
 
     Graph structure_;
     RandomNumberGenerator rng_;
-
-    StateVectorPack population_;
 
     std::vector<Schedule> schedule_;
 
