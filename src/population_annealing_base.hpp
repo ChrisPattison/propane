@@ -66,6 +66,8 @@ class PopulationAnnealingBase {
         bool energy_dist = false;
         bool ground_dist = false;
         bool compute_observables = false;
+        bool micro_step = false;
+        double max_slope = 0.0;
         double population_fraction = 1.0;
     };
 /** Parameters for entire run.

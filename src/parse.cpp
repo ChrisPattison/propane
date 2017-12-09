@@ -101,6 +101,8 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
             config->schedule.back().overlap_dist = item.second.get("overlap_hist", false);
             config->schedule.back().energy_dist = item.second.get("energy_hist", false);
             config->schedule.back().ground_dist = item.second.get("ground_hist", false);
+            config->schedule.back().micro_step = item.second.get("micro_step", false);
+            config->schedule.back().max_slope = item.second.get("max_slope", 0.0);
         }
     } catch(std::exception& e) {
         util::Check(false, "Config parsing failed.");

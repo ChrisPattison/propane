@@ -186,95 +186,103 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     auto total_time_start = std::chrono::high_resolution_clock::now();
     unsigned long long int total_sweeps = 0;
 
+    auto beta_step = 1e-3;
     for(auto step : schedule_) {
-        Result observables;
+        do {
+            Result observables;
 
-        auto time_start = std::chrono::high_resolution_clock::now();
-        if(step.beta != beta_) {
-            observables.norm_factor = Resample(step.beta, step.population_fraction);
-        }
-        for(std::size_t k = 0; k < replicas_.size(); ++k) {
-            if(step.heat_bath) {
-                HeatbathSweep(replicas_[k], step.sweeps);
-            }else {
-                MetropolisSweep(replicas_[k], step.sweeps);
+            auto time_start = std::chrono::high_resolution_clock::now();
+            if(step.beta != beta_) {
+                if(step.micro_step) {
+                    beta_step = DeltaBeta(step.max_slope, beta_step, step.population_fraction);
+                }
+                auto new_beta = step.micro_step ? std::min(beta_step + beta_, step.beta) : step.beta;
+                observables.norm_factor = Resample(new_beta, step.population_fraction);
             }
-        }
-        total_sweeps += replicas_.size() * step.sweeps;
+            for(std::size_t k = 0; k < replicas_.size(); ++k) {
+                if(step.heat_bath) {
+                    HeatbathSweep(replicas_[k], step.sweeps);
+                }else {
+                    MetropolisSweep(replicas_[k], step.sweeps);
+                }
+            }
+            total_sweeps += replicas_.size() * step.sweeps;
+            // beta_ should be monotonically increasing
         
-        observables.montecarlo_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_start).count();
+            observables.montecarlo_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_start).count();
 
-        observables.beta = beta_;
-        observables.population = replicas_.size();
+            observables.beta = beta_;
+            observables.population = replicas_.size();
 
-        if(!solver_mode_ || beta_ == schedule_.back().beta) {
-            if(step.compute_observables) {
-                energy.resize(replicas_.size());
-                for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                    energy[k] = Hamiltonian(replicas_[k]);
-                }
-                Eigen::Map<Eigen::VectorXd> energy_map(energy.data(), energy.size());
-                // Basic observables
-                observables.average_energy = energy_map.mean();
-                observables.average_squared_energy = energy_map.array().pow(2).mean();
-                observables.ground_energy = energy_map.minCoeff();
-                // Round-off /probably/ isn't an issue here
-                observables.grounded_replicas = energy_map.array().unaryExpr(
-                    [&](double E){return util::FuzzyCompare(E, observables.ground_energy) ? 1 : 0;}).sum();
-                // Family statistics
-                std::vector<double> family_size = FamilyCount();
-                std::transform(family_size.begin(),family_size.end(),family_size.begin(),
-                    [&](double n) -> double {return n /= observables.population;});
-                // Entropy
-                observables.entropy = -std::accumulate(family_size.begin(), family_size.end(), 0.0, 
-                    [](double acc, double n) {return acc + n*std::log(n); });
-                // Mean Square Family Size
-                observables.mean_square_family_size = observables.population * 
-                    std::accumulate(family_size.begin(), family_size.end(), 0.0, [](double acc, double n) {return acc + n*n; });
-
-                if(step.energy_dist) {
-                    // Energy
-                    observables.energy_distribution = BuildHistogram(energy);
-                }
-                
-                if(step.ground_dist) {
-                    std::vector<StateVector> ground_states;
-                    std::vector<double> samples;
-                    samples.reserve(observables.grounded_replicas);
+            if(!solver_mode_ || beta_ == schedule_.back().beta) {
+                if(step.compute_observables) {
+                    energy.resize(replicas_.size());
                     for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                        if(util::FuzzyCompare(observables.ground_energy, energy[k])) {
-                            auto state = std::distance(ground_states.begin(), std::find(ground_states.begin(), ground_states.end(), replicas_[k]));
-                            if(state == ground_states.size()) {
-                                ground_states.push_back(replicas_[k]);
-                            }
-                            
-                            samples.push_back(state);
-                        }
+                        energy[k] = Hamiltonian(replicas_[k]);
                     }
-                    observables.ground_distribution = BuildHistogram(samples);
+                    Eigen::Map<Eigen::VectorXd> energy_map(energy.data(), energy.size());
+                    // Basic observables
+                    observables.average_energy = energy_map.mean();
+                    observables.average_squared_energy = energy_map.array().pow(2).mean();
+                    observables.ground_energy = energy_map.minCoeff();
+                    // Round-off /probably/ isn't an issue here
+                    observables.grounded_replicas = energy_map.array().unaryExpr(
+                        [&](double E){return util::FuzzyCompare(E, observables.ground_energy) ? 1 : 0;}).sum();
+                    // Family statistics
+                    std::vector<double> family_size = FamilyCount();
+                    std::transform(family_size.begin(),family_size.end(),family_size.begin(),
+                        [&](double n) -> double {return n /= observables.population;});
+                    // Entropy
+                    observables.entropy = -std::accumulate(family_size.begin(), family_size.end(), 0.0, 
+                        [](double acc, double n) {return acc + n*std::log(n); });
+                    // Mean Square Family Size
+                    observables.mean_square_family_size = observables.population * 
+                        std::accumulate(family_size.begin(), family_size.end(), 0.0, [](double acc, double n) {return acc + n*n; });
+
+                    if(step.energy_dist) {
+                        // Energy
+                        observables.energy_distribution = BuildHistogram(energy);
+                    }
+                    
+                    if(step.ground_dist) {
+                        std::vector<StateVector> ground_states;
+                        std::vector<double> samples;
+                        samples.reserve(observables.grounded_replicas);
+                        for(std::size_t k = 0; k < replicas_.size(); ++k) {
+                            if(util::FuzzyCompare(observables.ground_energy, energy[k])) {
+                                auto state = std::distance(ground_states.begin(), std::find(ground_states.begin(), ground_states.end(), replicas_[k]));
+                                if(state == ground_states.size()) {
+                                    ground_states.push_back(replicas_[k]);
+                                }
+                                
+                                samples.push_back(state);
+                            }
+                        }
+                        observables.ground_distribution = BuildHistogram(samples);
+                    }
                 }
+
+                if(step.overlap_dist) {
+                    // Overlap
+                    std::vector<std::pair<int, int>> overlap_pairs = BuildReplicaPairs();
+                    std::vector<double> overlap_samples(overlap_pairs.size());
+
+                    std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
+                        [&](std::pair<int, int> p){return Overlap(replicas_[p.first], replicas_[p.second]);});
+                    observables.overlap = BuildHistogram(overlap_samples);
+                    // Link Overlap
+                    std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
+                        [&](std::pair<int, int> p){return LinkOverlap(replicas_[p.first], replicas_[p.second]);});
+                    observables.link_overlap = BuildHistogram(overlap_samples);
+                }
+
+                observables.seed = rng_.GetSeed();
+                observables.sweeps = step.sweeps;
+                observables.total_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - total_time_start).count();
+                observables.total_sweeps = total_sweeps;
+                results.push_back(observables);
             }
-
-            if(step.overlap_dist) {
-                // Overlap
-                std::vector<std::pair<int, int>> overlap_pairs = BuildReplicaPairs();
-                std::vector<double> overlap_samples(overlap_pairs.size());
-
-                std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
-                    [&](std::pair<int, int> p){return Overlap(replicas_[p.first], replicas_[p.second]);});
-                observables.overlap = BuildHistogram(overlap_samples);
-                // Link Overlap
-                std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
-                    [&](std::pair<int, int> p){return LinkOverlap(replicas_[p.first], replicas_[p.second]);});
-                observables.link_overlap = BuildHistogram(overlap_samples);
-            }
-
-            observables.seed = rng_.GetSeed();
-            observables.sweeps = step.sweeps;
-            observables.total_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - total_time_start).count();
-            observables.total_sweeps = total_sweeps;
-            results.push_back(observables);
-        }
+        } while(step.micro_step && beta_ < step.beta); 
     }
     return results;
 }
@@ -335,5 +343,43 @@ double PopulationAnnealing::Resample(double new_beta, double new_population_frac
     replicas_ = resampled_replicas;
     replica_families_ = resampled_families;
     return summed_weights;
+}
+
+double PopulationAnnealing::ResampledEntropy(double new_beta, double new_population_fraction) {
+    std::vector<double> weighting(replicas_.size());
+    std::transform(replicas_.begin(), replicas_.end(), weighting.begin(), 
+        [&](auto& r) { return std::exp(-(new_beta-beta_) * this->Hamiltonian(r)); });
+
+    double normalization = std::accumulate(weighting.begin(), weighting.end(), 0.0);
+    double entropy = 0.0;
+    auto i = replica_families_.begin();
+    do {
+        auto i_next = std::find_if(i, replica_families_.end(), [&](const int& v){return v != *i;});
+        auto family_weight_begin = weighting.begin() + std::distance(replica_families_.begin(), i);
+        auto family_weight_end = weighting.begin() + std::distance(replica_families_.begin(), i_next);
+        auto family_fraction = std::accumulate(family_weight_begin, family_weight_end, 0.0)/(normalization*new_population_fraction*average_population_);
+        entropy += family_fraction > 0 ? -family_fraction*std::log(family_fraction) : 0.0;
+        i = i_next;
+    }while(i != replica_families_.end());
+    return average_population_*new_population_fraction*std::exp(-entropy);
+}
+
+double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual) {
+    const double d_step = 1e-6;
+    // These numerical derivatives can probably be replaced with exact ones
+    // Compute derivatives of entropy at beta
+    auto derivative = [&](double beta) -> double { return (this->ResampledEntropy(beta+d_step/2, new_population_fraction) - this->ResampledEntropy(beta-d_step/2, new_population_fraction))/d_step; };
+    auto residual = [&](double step) -> double { return derivative(beta_ + step) - max_slope; };
+    auto residual_derivative = [&](double step) -> double { return (residual(step+d_step/2) - residual(step-d_step/2))/d_step; };
+
+    double prev_update, new_step = prev_step;
+    // Residual is derivative - max_slope
+    do {
+        prev_update = new_step;
+        new_step -= residual(new_step)/residual_derivative(new_step);
+        std::cout << prev_update << std::endl;
+    } while(std::abs((prev_update - new_step)/prev_update) > max_residual);
+    assert(new_step > 0.0);
+    return new_step;
 }
 }

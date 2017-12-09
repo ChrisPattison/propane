@@ -111,6 +111,13 @@ protected:
  * Returns the normalization factor Q as a byproduct.
  */
     virtual double Resample(double new_beta, double new_population_fraction);
+/** Computes the quantity rho_s for a population resampled at temperature new_beta
+ */
+    virtual double ResampledEntropy(double new_beta, double new_population_fraction);
+/** Gets optimal beta step given a desired dS/dB
+ * Uses Newton-Raphson method
+ */
+    virtual double DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual = 1e-3);
 public:
 
     PopulationAnnealing() = delete;
