@@ -117,7 +117,7 @@ protected:
 /** Gets optimal beta step given a desired dS/dB
  * Uses Newton-Raphson method
  */
-    virtual double DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual = 1e-3);
+    virtual double DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual = 1e-5);
 public:
 
     PopulationAnnealing() = delete;

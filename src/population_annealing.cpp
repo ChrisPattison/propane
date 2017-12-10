@@ -357,28 +357,30 @@ double PopulationAnnealing::ResampledEntropy(double new_beta, double new_populat
         auto i_next = std::find_if(i, replica_families_.end(), [&](const int& v){return v != *i;});
         auto family_weight_begin = weighting.begin() + std::distance(replica_families_.begin(), i);
         auto family_weight_end = weighting.begin() + std::distance(replica_families_.begin(), i_next);
-        auto family_fraction = std::accumulate(family_weight_begin, family_weight_end, 0.0)/(normalization*new_population_fraction*average_population_);
-        entropy += family_fraction > 0 ? -family_fraction*std::log(family_fraction) : 0.0;
+        auto family_fraction = std::accumulate(family_weight_begin, family_weight_end, 0.0)/normalization;
+        entropy += family_fraction*family_fraction;
         i = i_next;
     }while(i != replica_families_.end());
-    return average_population_*new_population_fraction*std::exp(-entropy);
+    return average_population_*new_population_fraction*entropy;
 }
 
 double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual) {
-    const double d_step = 1e-6;
+    const double d_step = 1e-5;
     // These numerical derivatives can probably be replaced with exact ones
     // Compute derivatives of entropy at beta
-    auto derivative = [&](double beta) -> double { return (this->ResampledEntropy(beta+d_step/2, new_population_fraction) - this->ResampledEntropy(beta-d_step/2, new_population_fraction))/d_step; };
+    auto derivative = [&](double beta) -> double { return (this->ResampledEntropy(beta*(1+d_step/2), new_population_fraction) - this->ResampledEntropy(beta*(1-d_step/2), new_population_fraction))/(beta*d_step); };
     auto residual = [&](double step) -> double { return derivative(beta_ + step) - max_slope; };
-    auto residual_derivative = [&](double step) -> double { return (residual(step+d_step/2) - residual(step-d_step/2))/d_step; };
+    auto residual_derivative = [&](double step) -> double { return (residual(step*(1+d_step/2)) - residual(step*(1-d_step/2)))/(step*d_step); };
 
     double prev_update, new_step = prev_step;
     // Residual is derivative - max_slope
+    auto res = 0.0;
     do {
         prev_update = new_step;
-        new_step -= residual(new_step)/residual_derivative(new_step);
-        std::cout << prev_update << std::endl;
-    } while(std::abs((prev_update - new_step)/prev_update) > max_residual);
+        res = residual(new_step);
+        new_step -= res/residual_derivative(new_step);
+        std::cout << prev_update << " , " << res << std::endl;
+    } while(std::abs(res) > max_residual);
     assert(new_step > 0.0);
     return new_step;
 }
