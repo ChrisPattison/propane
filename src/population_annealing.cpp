@@ -364,7 +364,7 @@ double PopulationAnnealing::ResampledEntropy(double new_beta, double new_populat
     return average_population_*new_population_fraction*entropy;
 }
 
-double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual) {
+double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual, const int newton_timeout) {
     const double d_step = 1e-5;
     // These numerical derivatives can probably be replaced with exact ones
     // Compute derivatives of entropy at beta
@@ -375,11 +375,40 @@ double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double
     double prev_update, new_step = prev_step;
     // Residual is derivative - max_slope
     auto res = 0.0;
+    // This should have a time-out and fall back to bisection           
+    auto steps = 0;
+    bool fallback = false;
     do {
+        // Newton Raphson
         prev_update = new_step;
         res = residual(new_step);
         new_step -= res/residual_derivative(new_step);
         std::cout << prev_update << " , " << res << std::endl;
+        // Bisection fallback
+        if(new_step < 0 || steps > newton_timeout) {
+            double left = 0.0;
+            double right = 1.0;
+            double left_res = residual(left);
+            // increase right side until a zero is within the bounds
+            for(; std::signbit(left_res) == std::signbit(residual(left)); right *= 2) { }
+            double right_res = residual(right);
+
+            double center, center_res;
+            do {
+                center = (left + right)/2;
+                center_res = residual(center);
+
+                if(std::signbit(left_res) == std::signbit(center_res)) {
+                    left = center;
+                    left_res = center_res;
+                }else {
+                    right = center;
+                    right_res = center_res;
+                }
+            } while(center_res > max_residual);
+            new_step = center;
+            break;
+        }
     } while(std::abs(res) > max_residual);
     assert(new_step > 0.0);
     return new_step;
