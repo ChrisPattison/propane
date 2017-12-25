@@ -34,6 +34,7 @@ ParallelTempering::ParallelTempering(const Graph& structure, Config config) {
     
     schedule_ = config.schedule;
     bin_set_ = config.bin_set;
+    profile_ = config.profile;
     structure_ = structure;
     structure_.Adjacent().makeCompressed();
     solver_mode_ = config.solver_mode;
@@ -46,7 +47,7 @@ ParallelTempering::ParallelTempering(const Graph& structure, Config config) {
         // No transverse field
         field_[k] = FieldType(structure_.Fields()(k), 0.);
     }
-    std::stable_sort(schedule_.begin(), schedule_.end(), [](const auto& left, const auto& right) {return left.gamma/left.lambda < right.gamma/right.lambda;});
+    std::stable_sort(schedule_.begin(), schedule_.end(), [](const auto& left, const auto& right) {return left.beta > right.beta;});
     std::stable_sort(bin_set_.begin(), bin_set_.end());
 }
 
@@ -60,8 +61,8 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
         replicas_.emplace_back();
         auto& replica = replicas_.back();
         replica.beta = temp.beta;
-        replica.gamma = temp.gamma;
         replica.lambda = temp.lambda;
+        replica.gamma = profile_.back();
         replica.resize(structure_.size());
         for(std::size_t k = 0; k < replica.size(); ++k) {
             if(uniform_init_) {
@@ -75,7 +76,7 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
     // Initialize result_sum
     result_sum.resize(schedule_.size());
     for(int i = 0; i < result_sum.size(); ++i) {
-        result_sum[i].gamma = schedule_[i].gamma;
+        result_sum[i].gamma = profile_.back();
         result_sum[i].lambda = schedule_[i].lambda;
         result_sum[i].beta = schedule_[i].beta;
     }
@@ -84,11 +85,17 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
     // Run
     auto total_time_start = std::chrono::high_resolution_clock::now();
     for(std::size_t count = 0; (count < sweeps_) && !groundstate_found; ++count) {
-        // Sweep replicas
-        for(int k = 0; k < schedule_.size(); ++k) {
-            MicroCanonicalSweep(replicas_[k], schedule_[k].microcanonical);
-            MetropolisSweep(replicas_[k], schedule_[k].metropolis);
-            HeatbathSweep(replicas_[k], schedule_[k].heatbath);
+        for(const auto& p : profile_) {
+            for(auto& r : replicas_) {
+                r.gamma = p;
+                // r.lambda = std::sqrt(p*p - 1.0);
+            }
+            // Sweep replicas
+            for(int k = 0; k < schedule_.size(); ++k) {
+                MicroCanonicalSweep(replicas_[k], schedule_[k].microcanonical);
+                MetropolisSweep(replicas_[k], schedule_[k].metropolis);
+                HeatbathSweep(replicas_[k], schedule_[k].heatbath);
+            }
         }
         // Do replica exchange
         // This could reuse the projected energy computed for observables
@@ -121,21 +128,17 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
 }
 
 void ParallelTempering::ReplicaExchange(std::vector<StateVector>& replica_set) {
-    std::vector<double> projected_energy;
-    projected_energy.resize(replica_set.size());
-    std::transform(replica_set.begin(), replica_set.end(), projected_energy.begin(), [&](StateVector& r) { return ProjectedHamiltonian(Project(r)); });
-    // replica_set[k+1].gamma > replica_set[k].gamma should be true
+    std::vector<double> replica_energy;
+    replica_energy.resize(replica_set.size());
+    std::transform(replica_set.begin(), replica_set.end(), replica_energy.begin(), [&](StateVector& r) { return Hamiltonian(r); });
     for(int k = 0; k < schedule_.size()-1; ++k) {
-	assert(replica_set[k+1].gamma/replica_set[k+1].lambda > replica_set[k].gamma/replica_set[k].lambda);
-        double exchange_probabilty = std::min(1.0,
-            std::exp((replica_set[k+1].gamma/replica_set[k+1].lambda - replica_set[k].gamma/replica_set[k].lambda)
-                *(projected_energy[k+1] - projected_energy[k])));
+        double exchange_probabilty = std::min(1.0, std::exp((replica_set[k+1].beta - replica_set[k].beta) * (replica_energy[k+1] - replica_energy[k])));
         if(exchange_probabilty < rng_.Probability()) {
             std::swap(replica_set[k].beta, replica_set[k+1].beta);
             std::swap(replica_set[k].gamma, replica_set[k+1].gamma);
             std::swap(replica_set[k].lambda, replica_set[k+1].lambda);
             std::swap(replica_set[k], replica_set[k+1]);
-            std::swap(projected_energy[k], projected_energy[k+1]);
+            std::swap(replica_energy[k], replica_energy[k+1]);
         }
     }
 }

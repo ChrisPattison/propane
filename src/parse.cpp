@@ -128,7 +128,6 @@ void PtConfigParse(std::istream& file, ParallelTempering::Config* config, double
         for(auto& item : tree.get_child("schedule")) {
             config->schedule.emplace_back();
             config->schedule.back().beta = item.second.get<double>("beta");
-            config->schedule.back().gamma = item.second.get<double>("gamma");
             config->schedule.back().lambda = item.second.get<double>("lambda", 1.0);
             config->schedule.back().metropolis = item.second.get("metropolis", 0);
             config->schedule.back().heatbath = item.second.get("heatbath", 0);
@@ -141,6 +140,10 @@ void PtConfigParse(std::istream& file, ParallelTempering::Config* config, double
         
         for(auto& item : tree.get_child("bin_set")) {
             config->bin_set.push_back(item.second.get<std::size_t>(""));
+        }
+
+        for(auto& item : tree.get_child("profile")) {
+            config->profile.push_back(item.second.get<double>(""));
         }
     } catch(std::exception& e) {
         util::Check(false, "Config parsing failed.");

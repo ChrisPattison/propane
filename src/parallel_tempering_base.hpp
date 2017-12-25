@@ -58,7 +58,6 @@ public:
 
     struct Schedule {
         double beta;
-        double gamma;
         double lambda;
         int metropolis = 1;
         int heatbath = 0;
@@ -74,6 +73,7 @@ public:
         std::uint64_t seed;
         std::vector<ParallelTemperingBase::Schedule> schedule;
         std::vector<std::size_t> bin_set;
+        std::vector<double> profile;
         bool solver_mode = false;
         bool uniform_init = false;
         double planted_energy = std::numeric_limits<double>::quiet_NaN();
