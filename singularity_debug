@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: fedora:25
+From: fedora:27
 
 %setup
 cp -rf . $SINGULARITY_ROOTFS/src
@@ -15,7 +15,7 @@ gdb --args propane_svmc "$@"
 
 %post
 
-dnf install -y mpich mpich-devel boost-static boost-devel cmake eigen3-devel-3.2.10 git gcc-c++ gdb gtest-devel wget bzip2
+dnf install -y mpich mpich-devel boost-static boost-devel cmake eigen3-devel git gcc-c++ gdb gtest-devel wget bzip2
 
 cd /src
 rm -rf build
