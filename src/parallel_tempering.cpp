@@ -133,7 +133,7 @@ void ParallelTempering::ReplicaExchange(std::vector<StateVector>& replica_set) {
     std::transform(replica_set.begin(), replica_set.end(), replica_energy.begin(), [&](StateVector& r) { return Hamiltonian(r); });
     for(int k = 0; k < schedule_.size()-1; ++k) {
         double exchange_probabilty = std::min(1.0, std::exp((replica_set[k+1].beta - replica_set[k].beta) * (replica_energy[k+1] - replica_energy[k])));
-        if(exchange_probabilty < rng_.Probability()) {
+        if(exchange_probabilty > rng_.Probability()) {
             std::swap(replica_set[k].beta, replica_set[k+1].beta);
             std::swap(replica_set[k].gamma, replica_set[k+1].gamma);
             std::swap(replica_set[k].lambda, replica_set[k+1].lambda);
