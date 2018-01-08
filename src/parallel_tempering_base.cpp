@@ -34,6 +34,7 @@ namespace propane {
 
         samples += other.samples;
         average_energy += other.average_energy;
+        average_proj_energy += other.average_proj_energy;
         ground_energy = std::min(ground_energy, other.ground_energy);
         return *this;
     }
@@ -52,6 +53,7 @@ namespace propane {
 
         result.samples = samples;
         result.average_energy = average_energy / samples;
+        result.average_proj_energy = average_proj_energy / samples;
         result.ground_energy = ground_energy;
         result.total_sweeps = total_sweeps;
         result.total_time = total_time;

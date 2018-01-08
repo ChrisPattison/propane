@@ -42,6 +42,7 @@ public:
         double lambda = std::numeric_limits<double>::quiet_NaN();
         
         double average_energy = 0.0;
+        double average_proj_energy = 0.0;
         double ground_energy = std::numeric_limits<double>::max();
 
         unsigned long long int total_sweeps = 0;

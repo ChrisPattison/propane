@@ -94,7 +94,7 @@ void SpinVectorMonteCarlo::MicroCanonicalSweep(StateVector& replica, int sweeps)
 void SpinVectorMonteCarlo::MetropolisSweep(StateVector& replica, int sweeps) {
     for(std::size_t k = 0; k < sweeps; ++k) {
         for(std::size_t i = 0; i < replica.size(); ++i) {
-            int vertex = rng_.Range(replica.size());
+            int vertex = i;
             auto new_value = VertexType(rng_.Probability());
             double delta_energy = DeltaEnergy(replica, vertex, new_value);
             

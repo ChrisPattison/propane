@@ -150,8 +150,9 @@ auto ParallelTempering::Observables(const StateVector& replica) -> Bin {
     result.beta = replica.beta;
     result.samples = 1;
     
+    result.average_energy = ProjectedHamiltonian(replica);
     auto projected_energy = ProjectedHamiltonian(Project(replica));
-    result.average_energy = projected_energy;
+    result.average_proj_energy = projected_energy;
     result.ground_energy = projected_energy;
     return result;
 }
