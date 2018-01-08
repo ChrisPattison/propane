@@ -57,8 +57,9 @@ public:
     std::vector<ParallelTempering::Result> Run();
 private:
 /** Carry out replica exchange on replicas
+ * Returns the set of exchange probabilities
  */
-    void ReplicaExchange(std::vector<StateVector>& replica_set);
+    std::vector<double> ReplicaExchange(std::vector<StateVector>& replica_set);
 /** Record observables
  */
     Bin Observables(const StateVector& replica);

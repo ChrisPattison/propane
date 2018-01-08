@@ -93,11 +93,13 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
         }
         // Do replica exchange
         // This could reuse the projected energy computed for observables
-        ReplicaExchange(replicas_);
+        auto exchange_probabilty = ReplicaExchange(replicas_);
 
         // Measure observables
         for(int i = 0; i < result_sum.size(); ++i) {
-            result_sum[i] += Observables(replicas_[i]);
+            auto step_observables = Observables(replicas_[i]);
+            step_observables.exchange_probabilty = exchange_probabilty[i];
+            result_sum[i] += step_observables;
         }
 
         groundstate_found = util::FuzzyCompare(
@@ -121,13 +123,13 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
     return final_results;
 }
 
-void ParallelTempering::ReplicaExchange(std::vector<StateVector>& replica_set) {
-    std::vector<double> replica_energy;
-    replica_energy.resize(replica_set.size());
+std::vector<double> ParallelTempering::ReplicaExchange(std::vector<StateVector>& replica_set) {
+    std::vector<double> replica_energy(replica_set.size());
+    std::vector<double> exchange_probabilty(replica_set.size());
     std::transform(replica_set.begin(), replica_set.end(), replica_energy.begin(), [&](StateVector& r) { return Hamiltonian(r); });
     for(int k = 0; k < schedule_.size()-1; ++k) {
-        double exchange_probabilty = std::min(1.0, std::exp((replica_set[k+1].beta - replica_set[k].beta) * (replica_energy[k+1] - replica_energy[k])));
-        if(exchange_probabilty > rng_.Probability()) {
+        exchange_probabilty[k] = std::min(1.0, std::exp((replica_set[k+1].beta - replica_set[k].beta) * (replica_energy[k+1] - replica_energy[k])));
+        if(exchange_probabilty[k] > rng_.Probability()) {
             std::swap(replica_set[k].beta, replica_set[k+1].beta);
             std::swap(replica_set[k].gamma, replica_set[k+1].gamma);
             std::swap(replica_set[k].lambda, replica_set[k+1].lambda);
@@ -135,6 +137,8 @@ void ParallelTempering::ReplicaExchange(std::vector<StateVector>& replica_set) {
             std::swap(replica_energy[k], replica_energy[k+1]);
         }
     }
+    exchange_probabilty.back() = std::numeric_limits<double>::quiet_NaN();
+    return exchange_probabilty;
 }
 
 auto ParallelTempering::Observables(const StateVector& replica) -> Bin {
