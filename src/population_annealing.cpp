@@ -194,7 +194,8 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
             auto time_start = std::chrono::high_resolution_clock::now();
             if(step.beta != beta_) {
                 if(step.micro_step) {
-                    beta_step = DeltaBeta(step.max_slope, beta_step, step.population_fraction);
+                    beta_step = DeltaBeta(step.max_slope, beta_step, step.population_fraction, step.beta - beta_);
+                    std::cout << beta_step << std::endl;
                 }
                 auto new_beta = step.micro_step ? std::min(beta_step + beta_, step.beta) : step.beta;
                 observables.norm_factor = Resample(new_beta, step.population_fraction);
@@ -364,53 +365,38 @@ double PopulationAnnealing::ResampledEntropy(double new_beta, double new_populat
     return average_population_*new_population_fraction*entropy;
 }
 
-double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_residual, const int newton_timeout) {
-    const double d_step = 1e-5;
+double PopulationAnnealing::DeltaBeta(double max_slope, double prev_step, double new_population_fraction, const double max_step, const double max_residual) {
+    const double d_step = 1e-4;
     // These numerical derivatives can probably be replaced with exact ones
     // Compute derivatives of entropy at beta
-    auto derivative = [&](double beta) -> double { return (this->ResampledEntropy(beta*(1+d_step/2), new_population_fraction) - this->ResampledEntropy(beta*(1-d_step/2), new_population_fraction))/(beta*d_step); };
-    auto residual = [&](double step) -> double { return derivative(beta_ + step) - max_slope; };
-    auto residual_derivative = [&](double step) -> double { return (residual(step*(1+d_step/2)) - residual(step*(1-d_step/2)))/(step*d_step); };
+    auto derivative = [&](double beta) -> double { return (this->ResampledEntropy(beta+d_step/2, new_population_fraction) - this->ResampledEntropy(beta-d_step/2, new_population_fraction))/d_step; };
+    auto residual = [&](double step) -> double { return max_slope - derivative(beta_ + step); };
 
-    double prev_update, new_step = prev_step;
     // Residual is derivative - max_slope
-    auto res = 0.0;
-    // This should have a time-out and fall back to bisection           
-    auto steps = 0;
-    bool fallback = false;
+    double left = d_step * 10;
+    double left_res = residual(left);
+    double right = max_step;
+    for(; std::signbit(residual(right)) == std::signbit(left_res) && right < max_step ; right *= 2) { }
+    double right_res = residual(right);
+
+    if(std::signbit(left_res) == std::signbit(right_res)) {
+        std::cout << left_res << "; " << right_res << std::endl;
+        return right;
+    }
+
+    double center, center_res;
     do {
-        // Newton Raphson
-        prev_update = new_step;
-        res = residual(new_step);
-        new_step -= res/residual_derivative(new_step);
-        std::cout << prev_update << " , " << res << std::endl;
-        // Bisection fallback
-        if(new_step < 0 || steps > newton_timeout) {
-            double left = 0.0;
-            double right = 1.0;
-            double left_res = residual(left);
-            // increase right side until a zero is within the bounds
-            for(; std::signbit(left_res) == std::signbit(residual(left)); right *= 2) { }
-            double right_res = residual(right);
+        center = (left + right)/2;
+        center_res = residual(center);
 
-            double center, center_res;
-            do {
-                center = (left + right)/2;
-                center_res = residual(center);
-
-                if(std::signbit(left_res) == std::signbit(center_res)) {
-                    left = center;
-                    left_res = center_res;
-                }else {
-                    right = center;
-                    right_res = center_res;
-                }
-            } while(center_res > max_residual);
-            new_step = center;
-            break;
+        if(std::signbit(left_res) == std::signbit(center_res)) {
+            left = center;
+            left_res = center_res;
+        }else {
+            right = center;
+            right_res = center_res;
         }
-    } while(std::abs(res) > max_residual);
-    assert(new_step > 0.0);
-    return new_step;
+    } while(center_res > max_residual);
+    return center;
 }
 }
