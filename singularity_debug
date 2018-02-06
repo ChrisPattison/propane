@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: fedora:25
+From: fedora:27
 
 %setup
 cp -rf . $SINGULARITY_ROOTFS/src
@@ -15,12 +15,16 @@ gdb --args propane "$@"
 
 %post
 
-dnf install -y mpich mpich-devel boost-static boost-devel cmake eigen3-devel-3.2.10 git gcc-c++ gdb gtest-devel
+dnf install -y mpich mpich-devel boost-static boost-devel cmake git gcc-c++ gdb gtest-devel wget bzip2
 
 cd /src
 rm -rf build
 mkdir build
 cd build
-MPI_HOME=/usr/lib64/mpich cmake .. -DCMAKE_BUILD_TYPE=FastDebug
+
+wget bitbucket.org/eigen/eigen/get/3.2.10.tar.bz2
+tar -xjf 3.2.10.tar.bz2
+
+MPI_HOME=/usr/lib64/mpich cmake .. -DCMAKE_BUILD_TYPE=FastDebug -DEIGEN3_INCLUDE_DIR=../build/eigen-eigen-b9cd8366d4e8
 make
 make install
