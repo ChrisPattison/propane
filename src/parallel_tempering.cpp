@@ -101,9 +101,7 @@ std::vector<ParallelTempering::Result> ParallelTempering::Run() {
             result_sum[i] += step_observables;
         }
 
-        groundstate_found = util::FuzzyCompare(
-            std::min_element(result_sum.begin(), result_sum.end(), [](const auto& a, const auto& b) { return a.ground_energy < b.ground_energy; })->ground_energy, 
-            planted_energy_);
+        groundstate_found = std::min_element(result_sum.begin(), result_sum.end(), [](const auto& a, const auto& b) { return a.ground_energy < b.ground_energy; })->ground_energy <= planted_energy_;
 
         if(groundstate_found || std::binary_search(bin_set_.begin(), bin_set_.end(), count+1)) { // Record Bin
             auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - total_time_start).count();
