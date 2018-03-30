@@ -42,6 +42,8 @@ class PopulationAnnealingBase {
         std::vector<Histogram> energy_distribution;
         std::vector<Histogram> ground_distribution;
         double beta = std::numeric_limits<double>::quiet_NaN();
+        double d = std::numeric_limits<double>::quiet_NaN();
+        double p = std::numeric_limits<double>::quiet_NaN();
         int population = -1;
         double norm_factor = std::numeric_limits<double>::quiet_NaN();
         double average_energy = std::numeric_limits<double>::quiet_NaN();
@@ -60,6 +62,8 @@ class PopulationAnnealingBase {
  */
     struct Schedule {
         double beta;
+        double d;
+        double p;
         int sweeps = 10;
         bool heat_bath = false;
         bool overlap_dist = false;
@@ -72,6 +76,7 @@ class PopulationAnnealingBase {
  */
     struct Config {
         int population;
+        int trotter_slices;
         std::uint64_t seed;
         std::vector<PopulationAnnealingBase::Schedule> schedule;
         bool solver_mode = false;

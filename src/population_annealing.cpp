@@ -101,26 +101,55 @@ PopulationAnnealing::PopulationAnnealing(Graph& structure, Config config) {
     average_population_ = config.population;
     init_population_ = average_population_;
     solver_mode_ = config.solver_mode;
+    trotter_slices_ = config.trotter_slices;
  }
 
 double PopulationAnnealing::Hamiltonian(StateVector& replica) {
-    if(structure_.has_field()) {
-        return (structure_.Adjacent().triangularView<Eigen::Upper>() * replica.cast<EdgeType>() - structure_.Fields()).dot(replica.cast<EdgeType>());
-    }else {
-        return (structure_.Adjacent().triangularView<Eigen::Upper>() * replica.cast<EdgeType>()).dot(replica.cast<EdgeType>());
-    }
+    return coeff_P_ * ProblemHamiltonian(replica) + coeff_D_ * DriverHamiltonian(replica);
 }
 
-double PopulationAnnealing::DeltaEnergy(StateVector& replica, int vertex) {
-    return -2 * replica(vertex) * (structure_.Adjacent().innerVector(vertex).dot(replica.cast<EdgeType>()) - structure_.Fields()(vertex));
+double PopulationAnnealing::DriverHamiltonian(StateVector& replica) {
+    double energy = 0;
+    for(int qvertex = 0; qvertex < structure_.size(); ++qvertex) {
+        for(int slice = 0; slice < trotter_slices_; ++slice) {
+            energy += replica(qvertex + slice * structure_.size()) * replica(qvertex + (slice+1+trotter_slices_)%trotter_slices_ * structure_.size());
+        }
+    }
+    return energy;
+}
+
+double PopulationAnnealing::ProblemHamiltonian(StateVector& replica) {
+    // There should be a way to construct a view on a full block diagonal adjacency matrix
+    double energy = 0;
+    for(auto slice = 0; slice < trotter_slices_; ++slice) {
+        if(structure_.has_field()) {
+            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(replica.cast<EdgeType>());
+        }else {
+            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(replica.cast<EdgeType>());
+        }
+    }
+    return energy;
+}
+
+double PopulationAnnealing::DeltaProblemEnergy(StateVector& replica, int vertex) {
+    auto slice = vertex / structure_.size();
+    return -2 * replica(vertex) * (structure_.Adjacent().innerVector(vertex % structure_.size()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>()) - structure_.Fields()(vertex % structure_.size()));
+}
+
+double PopulationAnnealing::DeltaDriverEnergy(StateVector& replica, int vertex) {
+    auto slice = vertex / structure_.size();
+    auto stride = structure_.size();
+    return -2 * replica(vertex) * ( replica((slice + stride)%replica.size()) + replica(((slice + replica.size()) - stride)%replica.size()) );
 }
 
 void PopulationAnnealing::MetropolisSweep(StateVector& replica, int sweeps) {
     for(std::size_t k = 0; k < sweeps; ++k) {
         for(std::size_t i = 0; i < replica.size(); ++i) {
             int vertex = i;
-            double delta_energy = DeltaEnergy(replica, vertex);
-            
+            double delta_problem_energy = DeltaProblemEnergy(replica, vertex);
+            double delta_driver_energy = DeltaDriverEnergy(replica, vertex);
+            double delta_energy = coeff_P_ * delta_problem_energy + coeff_D_ * delta_driver_energy;
+
             //round-off isn't a concern here
             if(MetropolisAcceptedMove(delta_energy)) {
                 replica(vertex) *= -1;
@@ -132,7 +161,9 @@ void PopulationAnnealing::MetropolisSweep(StateVector& replica, int sweeps) {
 void PopulationAnnealing::HeatbathSweep(StateVector& replica, int sweeps) {
     for(std::size_t k = 0; k < sweeps; ++k) {
         for(std::size_t vertex = 0; vertex < replica.size(); ++vertex) {
-            double delta_energy = DeltaEnergy(replica, vertex);
+            double delta_problem_energy = DeltaProblemEnergy(replica, vertex);
+            double delta_driver_energy = DeltaDriverEnergy(replica, vertex);
+            double delta_energy = coeff_P_ * delta_problem_energy + coeff_D_ * delta_driver_energy;
 
             if(HeatbathAcceptedMove(delta_energy)) {
                 replica(vertex) *= -1;
@@ -143,7 +174,7 @@ void PopulationAnnealing::HeatbathSweep(StateVector& replica, int sweeps) {
 
 bool PopulationAnnealing::IsLocalMinimum(StateVector& replica) {
     for(int k = 0; k < replica.size(); ++k) {
-        if(DeltaEnergy(replica, k) < 0) {
+        if(DeltaProblemEnergy(replica, k) < 0) {
             return false;
         }
     }
@@ -173,7 +204,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     
     for(auto& r : replicas_) {
         r = StateVector();
-        r.resize(structure_.size());
+        r.resize(structure_.size()*trotter_slices_);
         for(std::size_t k = 0; k < r.size(); ++k) {
             r(k) = rng_.Probability() < 0.5 ? 1 : -1;
         }
@@ -181,6 +212,8 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
 
     std::iota(replica_families_.begin(), replica_families_.end(), 0);
     beta_ = schedule_.front().beta;
+    coeff_D_ = schedule_.front().d;
+    coeff_P_ = schedule_.front().p;
     std::vector<double> energy;
 
     auto total_time_start = std::chrono::high_resolution_clock::now();
@@ -190,8 +223,8 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         Result observables;
 
         auto time_start = std::chrono::high_resolution_clock::now();
-        if(step.beta != beta_) {
-            observables.norm_factor = Resample(step.beta, step.population_fraction);
+        if(step.beta != beta_ || step.p != coeff_P_ || step.d != coeff_D_) {
+            observables.norm_factor = Resample(step.beta, step.p, step.d, step.population_fraction);
         }
         for(std::size_t k = 0; k < replicas_.size(); ++k) {
             if(step.heat_bath) {
@@ -205,13 +238,15 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         observables.montecarlo_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_start).count();
 
         observables.beta = beta_;
+        observables.d = coeff_D_;
+        observables.p = coeff_P_;
         observables.population = replicas_.size();
 
         if(!solver_mode_ || beta_ == schedule_.back().beta) {
             if(step.compute_observables) {
                 energy.resize(replicas_.size());
                 for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                    energy[k] = Hamiltonian(replicas_[k]);
+                    energy[k] = ProblemHamiltonian(replicas_[k]);
                 }
                 Eigen::Map<Eigen::VectorXd> energy_map(energy.data(), energy.size());
                 // Basic observables
@@ -307,7 +342,7 @@ bool PopulationAnnealing::AcceptedMove(double log_probability) {
     return std::exp(log_probability) > test;
 }
 
-double PopulationAnnealing::Resample(double new_beta, double new_population_fraction) {
+double PopulationAnnealing::Resample(double new_beta, double new_problem_coeff, double new_driver_coeff, double new_population_fraction) {
     std::vector<StateVector> resampled_replicas;
     std::vector<int> resampled_families;
     resampled_replicas.reserve(replicas_.size());
@@ -317,7 +352,9 @@ double PopulationAnnealing::Resample(double new_beta, double new_population_frac
 
     Eigen::VectorXd weighting(replicas_.size());
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
-        weighting(k) = std::exp(-(new_beta-beta_) * Hamiltonian(replicas_[k]));
+        auto driver_energy = DriverHamiltonian(replicas_[k]);
+        auto problem_energy = ProblemHamiltonian(replicas_[k]);
+        weighting(k) = std::exp(-(new_beta*new_problem_coeff-beta_*coeff_P_) * problem_energy - (new_beta*new_driver_coeff-beta_*coeff_D_) * driver_energy);
     }
     
     double summed_weights = weighting.sum();
@@ -332,6 +369,8 @@ double PopulationAnnealing::Resample(double new_beta, double new_population_frac
     }
 
     beta_ = new_beta;
+    coeff_P_ = new_problem_coeff;
+    coeff_D_ = new_driver_coeff;
     replicas_ = resampled_replicas;
     replica_families_ = resampled_families;
     return summed_weights;

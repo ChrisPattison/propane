@@ -50,8 +50,11 @@ protected:
 
     int init_population_;
     int average_population_;
+    int trotter_slices_;
     std::vector<Schedule> schedule_;
     double beta_;
+    double coeff_P_;
+    double coeff_D_;
     bool solver_mode_;
 
 /** Determinstically builds a list of replicas with different Markov Chains.
@@ -81,11 +84,20 @@ protected:
  * and the replica.
  */
     virtual double Hamiltonian(StateVector& replica);
+/** Returns problem energy without weight factor (zeta)
+ */
+    virtual double ProblemHamiltonian(StateVector& replica);
+/** Returns driver energy without weight factor (gamma)
+ */
+    virtual double DriverHamiltonian(StateVector& replica);
 /** Returns the energy change associated with flipping spin vertex.
  * Implemented as the dot product of row vertex of the adjacency matrix 
  * with the replica vector multiplied by the spin at vertex.
  */
-    virtual double DeltaEnergy(StateVector& replica, int vertex); 
+    virtual double DeltaProblemEnergy(StateVector& replica, int vertex);
+/** Returns the driver energy change associated with flipping spin vertex.
+ */
+    virtual double DeltaDriverEnergy(StateVector& replica, int vertex);
 /** Carries out moves monte carlo sweeps of replica using the Metropolis algorithm.
  */
     virtual void MetropolisSweep(StateVector& replica, int moves);
@@ -110,7 +122,7 @@ protected:
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
  */
-    virtual double Resample(double new_beta, double new_population_fraction);
+    virtual double Resample(double new_beta, double new_problem_coeff, double new_driver_coeff, double new_population_fraction);
 public:
 
     PopulationAnnealing() = delete;
@@ -123,5 +135,12 @@ public:
 /** Run solver and return results.
  */
     std::vector<Result> Run();
+
+/** Returns an Eigen VectorBlock for the trotter slice the spin is in
+ */
+    template<typename vector_type>
+    auto GetTrotterSlice(vector_type& replica, int slice) {
+        return replica.segment(slice * structure_.size(), structure_.size());
+    }
 };
 }
