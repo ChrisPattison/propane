@@ -26,7 +26,6 @@ add_executable(
     parallel_types.cpp 
     compare.cpp
     log_lookup.cpp
-    monte_carlo_driver.cpp
 )
 
 install(TARGETS propane 
