@@ -25,7 +25,6 @@
 #include "parse.hpp"
 #include "graph.hpp"
 #include "parallel_population_annealing.hpp"
-#include "greedy_population_annealing.hpp"
 #include "types.hpp"
 #include "string_util.hpp"
 #include "version.hpp"
@@ -114,33 +113,9 @@ void SinglePa(std::string config_path, std::string bond_path) {
     SinglePaPost(results, model);
 }
 
-void GreedyPa(std::string config_path, std::string bond_path) {
-    propane::Graph model;
-    propane::GreedyPopulationAnnealing::Config config;
-    SinglePaPre(config_path, bond_path, &model, &config);
-
-    propane::GreedyPopulationAnnealing population_annealing(model, config);
-    auto results = population_annealing.Run();
-
-    SinglePaPost(results, model);
-}
-
-void FpgaPa(std::string config_path, std::string bond_path) {
-    propane::Graph model;
-    propane::PopulationAnnealing::Config config;
-    SinglePaPre(config_path, bond_path, &model, &config);
-
-    propane::FpgaPopulationAnnealing population_annealing(model, config);
-    auto results = population_annealing.Run();
-
-    SinglePaPost(results, model);
-}
-
 enum ModeOption{
-    kModeOptionFpga,
     kModeOptionMpi,
-    kModeOptionSingle,
-    kModeOptionGreedy
+    kModeOptionSingle
 };
 
 int main(int argc, char** argv) {
@@ -155,7 +130,7 @@ int main(int argc, char** argv) {
         ("config", "configuration file")
         ("version,v", "version number")
         ("bondfile", "file containing graph and couplers")
-        ("mode,m", boost::program_options::value<std::string>()->default_value("1"), "select run mode <1/mpi/fpga/greedy>");
+        ("mode,m", boost::program_options::value<std::string>()->default_value("1"), "select run mode <1/mpi>");
     boost::program_options::variables_map var_map;
     boost::program_options::store(boost::program_options::command_line_parser(argc, argv)
         .options(description).positional(positional_description).run(), var_map);
@@ -182,8 +157,6 @@ int main(int argc, char** argv) {
     // Select PA implementation
     std::map<std::string, ModeOption> selector_map;
     selector_map.insert({"mpi", kModeOptionMpi});
-    selector_map.insert({"fpga", kModeOptionFpga});
-    selector_map.insert({"greedy", kModeOptionGreedy});
     ModeOption selection;
     if(selector_map.count(var_map["mode"].as<std::string>()) == 0) {
         selection = kModeOptionSingle;
@@ -193,9 +166,7 @@ int main(int argc, char** argv) {
 
     switch(selection) {
         case kModeOptionMpi : MpiPa(var_map["config"].as<std::string>(), var_map["bondfile"].as<std::string>()); break;
-        case kModeOptionFpga : FpgaPa(var_map["config"].as<std::string>(), var_map["bondfile"].as<std::string>()); break;
         case kModeOptionSingle : SinglePa(var_map["config"].as<std::string>(), var_map["bondfile"].as<std::string>()); break;
-        case kModeOptionGreedy : GreedyPa(var_map["config"].as<std::string>(), var_map["bondfile"].as<std::string>()); break;
     }
 
     return EXIT_SUCCESS;
