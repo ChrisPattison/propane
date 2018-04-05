@@ -95,8 +95,7 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
         for(auto& item : tree.get_child("schedule")) {
             config->schedule.emplace_back();
             config->schedule.back().beta = item.second.get<double>("beta");
-            config->schedule.back().p = item.second.get<double>("p");
-            config->schedule.back().d = item.second.get<double>("d");
+            config->schedule.back().gamma = item.second.get<double>("gamma");
             config->schedule.back().population_fraction = item.second.get<double>("population_fraction", 1.0);
             config->schedule.back().sweeps = item.second.get("sweeps", default_sweeps);
             config->schedule.back().heat_bath = item.second.get("heat_bath", false);
@@ -108,6 +107,6 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
     } catch(std::exception& e) {
         util::Check(false, "Config parsing failed.");
     }
-    std::stable_sort(config->schedule.begin(), config->schedule.end(), [](const auto& left, const auto& right) {return (left.beta != right.beta) ?  (left.beta < right.beta) : left.p < right.p;});
+    std::stable_sort(config->schedule.begin(), config->schedule.end(), [](const auto& left, const auto& right) {return (left.beta != right.beta) ?  (left.beta < right.beta) : left.gamma > right.gamma;});
 }
 }}

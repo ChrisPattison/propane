@@ -44,6 +44,7 @@ class PopulationAnnealingBase {
         double beta = std::numeric_limits<double>::quiet_NaN();
         double d = std::numeric_limits<double>::quiet_NaN();
         double p = std::numeric_limits<double>::quiet_NaN();
+        double gamma = std::numeric_limits<double>::quiet_NaN();
         int population = -1;
         double norm_factor = std::numeric_limits<double>::quiet_NaN();
         double average_energy = std::numeric_limits<double>::quiet_NaN();
@@ -62,8 +63,7 @@ class PopulationAnnealingBase {
  */
     struct Schedule {
         double beta;
-        double d;
-        double p;
+        double gamma;
         int sweeps = 10;
         bool heat_bath = false;
         bool overlap_dist = false;

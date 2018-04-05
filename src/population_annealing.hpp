@@ -52,6 +52,8 @@ protected:
     int average_population_;
     int trotter_slices_;
     std::vector<Schedule> schedule_;
+    // This should have getters and setters
+    // Write only through setparams
     double beta_;
     double coeff_P_;
     double coeff_D_;
@@ -122,7 +124,11 @@ protected:
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
  */
-    virtual double Resample(double new_beta, double new_problem_coeff, double new_driver_coeff, double new_population_fraction);
+    virtual double Resample(double new_beta, double new_gamma, double new_population_fraction);
+/** Changes coeff_P, coeff_D, and beta for a particular transverse field
+ * Do not change beta and gamma directly
+ */
+    void SetParams(double new_gamma, double new_beta);
 public:
 
     PopulationAnnealing() = delete;

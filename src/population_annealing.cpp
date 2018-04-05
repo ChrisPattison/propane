@@ -96,6 +96,8 @@ PopulationAnnealing::PopulationAnnealing(Graph& structure, Config config) {
 
     schedule_ = config.schedule;
     beta_ = NAN;
+    coeff_D_ = NAN;
+    coeff_P_ = NAN;
     structure_ = structure;
     structure_.Adjacent().makeCompressed();
     average_population_ = config.population;
@@ -211,9 +213,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     }
 
     std::iota(replica_families_.begin(), replica_families_.end(), 0);
-    beta_ = schedule_.front().beta;
-    coeff_D_ = schedule_.front().d;
-    coeff_P_ = schedule_.front().p;
+    SetParams(schedule_.front().gamma, schedule_.front().beta);
     std::vector<double> energy;
 
     auto total_time_start = std::chrono::high_resolution_clock::now();
@@ -223,9 +223,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         Result observables;
 
         auto time_start = std::chrono::high_resolution_clock::now();
-        if(step.beta != beta_ || step.p != coeff_P_ || step.d != coeff_D_) {
-            observables.norm_factor = Resample(step.beta, step.p, step.d, step.population_fraction);
-        }
+        observables.norm_factor = Resample(step.beta, step.gamma, step.population_fraction);
         for(std::size_t k = 0; k < replicas_.size(); ++k) {
             if(step.heat_bath) {
                 HeatbathSweep(replicas_[k], step.sweeps);
@@ -238,6 +236,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         observables.montecarlo_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_start).count();
 
         observables.beta = beta_;
+        observables.gamma = step.gamma;
         observables.d = coeff_D_;
         observables.p = coeff_P_;
         observables.population = replicas_.size();
@@ -342,7 +341,14 @@ bool PopulationAnnealing::AcceptedMove(double log_probability) {
     return std::exp(log_probability) > test;
 }
 
-double PopulationAnnealing::Resample(double new_beta, double new_problem_coeff, double new_driver_coeff, double new_population_fraction) {
+double PopulationAnnealing::Resample(double new_beta, double new_gamma, double new_population_fraction) {
+    auto old_driver_coeff = coeff_D_;
+    auto old_problem_coeff = coeff_P_;
+    auto old_beta = beta_;
+    SetParams(new_gamma, new_beta);
+    auto new_driver_coeff = coeff_D_;
+    auto new_problem_coeff = coeff_P_;
+
     std::vector<StateVector> resampled_replicas;
     std::vector<int> resampled_families;
     resampled_replicas.reserve(replicas_.size());
@@ -354,7 +360,7 @@ double PopulationAnnealing::Resample(double new_beta, double new_problem_coeff, 
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
         auto driver_energy = DriverHamiltonian(replicas_[k]);
         auto problem_energy = ProblemHamiltonian(replicas_[k]);
-        weighting(k) = std::exp(-(new_beta*new_problem_coeff-beta_*coeff_P_) * problem_energy - (new_beta*new_driver_coeff-beta_*coeff_D_) * driver_energy);
+        weighting(k) = std::exp(-(new_beta*new_problem_coeff-old_beta*old_problem_coeff) * problem_energy - (new_beta*new_driver_coeff-old_beta*old_driver_coeff) * driver_energy);
     }
     
     double summed_weights = weighting.sum();
@@ -368,11 +374,14 @@ double PopulationAnnealing::Resample(double new_beta, double new_problem_coeff, 
         }
     }
 
-    beta_ = new_beta;
-    coeff_P_ = new_problem_coeff;
-    coeff_D_ = new_driver_coeff;
     replicas_ = resampled_replicas;
     replica_families_ = resampled_families;
     return summed_weights;
+}
+
+void PopulationAnnealing::SetParams(double new_gamma, double new_beta) {
+    beta_ = new_beta;
+    coeff_D_ = std::log(std::tanh(beta_ * new_gamma / trotter_slices_)) / (2.0 * beta_);
+    coeff_P_ = 1.0/trotter_slices_;
 }
 }
