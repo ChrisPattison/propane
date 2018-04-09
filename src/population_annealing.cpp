@@ -24,6 +24,7 @@
  
 #include "population_annealing.hpp"
 #include "compare.hpp"
+#include "log_sum_exp.hpp"
 #include <cmath>
 #include <cassert>
 #include <iostream>
@@ -355,18 +356,18 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
     resampled_families.reserve(replicas_.size());
 
     average_population_ = new_population_fraction * init_population_;
-
-    Eigen::VectorXd weighting(replicas_.size());
-    for(std::size_t k = 0; k < replicas_.size(); ++k) {
-        auto driver_energy = DriverHamiltonian(replicas_[k]);
-        auto problem_energy = ProblemHamiltonian(replicas_[k]);
-        weighting(k) = std::exp(-(new_beta*new_problem_coeff-old_beta*old_problem_coeff) * problem_energy - (new_beta*new_driver_coeff-old_beta*old_driver_coeff) * driver_energy);
-    }
     
-    double summed_weights = weighting.sum();
-    double normalize = average_population_ / summed_weights;
+    std::vector<double> log_weights(replicas_.size());
+    std::transform(replicas_.begin(), replicas_.end(), log_weights.begin(), [&](auto& r) {
+        auto driver_energy = DriverHamiltonian(r);
+        auto problem_energy = ProblemHamiltonian(r);
+        return -(new_beta*new_problem_coeff-old_beta*old_problem_coeff) * problem_energy - (new_beta*new_driver_coeff-old_beta*old_driver_coeff) * driver_energy;
+    });
+
+    auto log_norm = util::LogSumExp(log_weights.begin(), log_weights.end());
+
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
-        double weight = normalize * weighting(k);
+        double weight = average_population_ * std::exp(log_weights[k] - log_norm);
         unsigned int n = (weight - std::floor(weight)) > rng_.Probability() ? std::ceil(weight) : std::floor(weight);
         for(std::size_t i = 0; i < n; ++i) {
             resampled_replicas.push_back(replicas_[k]);
@@ -374,9 +375,7 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
         }
     }
 
-    replicas_ = resampled_replicas;
-    replica_families_ = resampled_families;
-    return summed_weights;
+    return std::exp(log_norm);
 }
 
 void PopulationAnnealing::SetParams(double new_gamma, double new_beta) {
