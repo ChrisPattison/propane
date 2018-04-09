@@ -125,9 +125,9 @@ double PopulationAnnealing::ProblemHamiltonian(StateVector& replica) {
     double energy = 0;
     for(auto slice = 0; slice < trotter_slices_; ++slice) {
         if(structure_.has_field()) {
-            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(replica.cast<EdgeType>());
+            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
         }else {
-            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(replica.cast<EdgeType>());
+            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
         }
     }
     return energy;
