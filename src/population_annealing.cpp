@@ -374,7 +374,8 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
             resampled_families.push_back(replica_families_[k]);
         }
     }
-
+    replicas_ = resampled_replicas;
+    replica_families_ = resampled_families;
     return std::exp(log_norm);
 }
 
