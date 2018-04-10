@@ -89,6 +89,9 @@ protected:
 /** Returns problem energy without weight factor (zeta)
  */
     virtual double ProblemHamiltonian(StateVector& replica);
+/** Returns the problem energy for a single trotter slice
+ */
+    virtual double SliceProblemHamiltonian(StateVector& replica, int slice);
 /** Returns driver energy without weight factor (gamma)
  */
     virtual double DriverHamiltonian(StateVector& replica);

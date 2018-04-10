@@ -125,13 +125,17 @@ double PopulationAnnealing::ProblemHamiltonian(StateVector& replica) {
     // There should be a way to construct a view on a full block diagonal adjacency matrix
     double energy = 0;
     for(auto slice = 0; slice < trotter_slices_; ++slice) {
-        if(structure_.has_field()) {
-            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
-        }else {
-            energy += (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
-        }
+        energy += SliceProblemHamiltonian(replica, slice);
     }
     return energy;
+}
+
+double PopulationAnnealing::SliceProblemHamiltonian(StateVector& replica, int slice) {
+    if(structure_.has_field()) {
+        return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
+    }else {
+        return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
+    }
 }
 
 double PopulationAnnealing::DeltaProblemEnergy(StateVector& replica, int vertex) {
@@ -244,9 +248,11 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
 
         if(!solver_mode_ || beta_ == schedule_.back().beta) {
             if(step.compute_observables) {
-                energy.resize(replicas_.size());
+                energy.resize(replicas_.size() * trotter_slices_);
                 for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                    energy[k] = ProblemHamiltonian(replicas_[k]);
+                    for(std::size_t slice = 0; slice < trotter_slices_; ++slice) {
+                        energy[k*trotter_slices_ + slice] = SliceProblemHamiltonian(replicas_[k], slice);
+                    }
                 }
                 Eigen::Map<Eigen::VectorXd> energy_map(energy.data(), energy.size());
                 // Basic observables
