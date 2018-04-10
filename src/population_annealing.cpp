@@ -368,7 +368,7 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
 
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
         double weight = average_population_ * std::exp(log_weights[k] - log_norm);
-        unsigned int n = (weight - std::floor(weight)) > rng_.Probability() ? std::ceil(weight) : std::floor(weight);
+        unsigned int n = (weight - std::floor(weight)) > rng_.Probability() ? static_cast<unsigned int>(std::ceil(weight)) : static_cast<unsigned int>(std::floor(weight));
         for(std::size_t i = 0; i < n; ++i) {
             resampled_replicas.push_back(replicas_[k]);
             resampled_families.push_back(replica_families_[k]);
