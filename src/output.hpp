@@ -26,7 +26,6 @@
 #include "graph.hpp"
 #include "parallel_population_annealing.hpp"
 #include "population_annealing.hpp"
-#include "fpga_population_annealing.hpp"
 #include <iostream>
 #include <string>
 #include <cstdint>

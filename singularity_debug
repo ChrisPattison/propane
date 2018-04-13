@@ -15,7 +15,7 @@ gdb --args propane "$@"
 
 %post
 
-dnf install -y mpich mpich-devel boost-static boost-devel cmake git gcc-c++ gdb gtest-devel wget bzip2
+dnf install -y mpich mpich-devel boost-static boost-devel cmake git gcc-c++ gdb gtest-devel wget bzip2 make
 
 cd /src
 rm -rf build
