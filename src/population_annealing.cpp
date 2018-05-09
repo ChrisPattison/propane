@@ -365,8 +365,8 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
     
     std::vector<double> log_weights(replicas_.size());
     std::transform(replicas_.begin(), replicas_.end(), log_weights.begin(), [&](auto& r) {
-        auto driver_energy = DriverHamiltonian(r);
-        auto problem_energy = ProblemHamiltonian(r);
+        auto driver_energy = this->DriverHamiltonian(r);
+        auto problem_energy = this->ProblemHamiltonian(r);
         return -(new_beta*new_problem_coeff-old_beta*old_problem_coeff) * problem_energy - (new_beta*new_driver_coeff-old_beta*old_driver_coeff) * driver_energy;
     });
 
