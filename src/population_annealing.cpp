@@ -179,6 +179,47 @@ void PopulationAnnealing::HeatbathSweep(StateVector& replica, int sweeps) {
     }
 }
 
+void PopulationAnnealing::WolffSweep(StateVector& replica, int moves) {
+    std::vector<char> cluster(trotter_slices_);
+    double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
+    for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
+        // Setup
+        std::fill(cluster.begin(), cluster.end(), 1);
+        int seed = rng_.Range(replica.size());
+        int seed_vertex = seed % structure_.size();
+        int seed_slice = seed / structure_.size();
+        double delta_energy = DeltaProblemEnergy(replica, seed);
+        cluster[seed_slice] = -1;
+
+        // Grow cluster upwards and downwards
+        for(auto direction : {1, -1}) {
+            int prev_slice = seed_slice;
+            for(int next_slice = (prev_slice + direction + trotter_slices_)%trotter_slices_; cluster[next_slice] == 1;
+                next_slice = (prev_slice + direction + trotter_slices_)%trotter_slices_) {
+
+                int prev_spin = prev_slice * structure_.size() + seed_vertex;
+                int next_spin = next_slice * structure_.size() + seed_vertex;
+
+                if(replica(next_spin) == replica(prev_spin) && rng_.Probability() < growth_prob) {
+                    cluster[next_slice] = -1;
+                    delta_energy += DeltaProblemEnergy(replica, next_spin);
+                }else {
+                    break;
+                }
+                prev_slice = next_slice;
+            }
+        }
+        
+        // Attempt to flip
+        delta_energy *= coeff_P_;
+        if(MetropolisAcceptedMove(delta_energy)) {
+            for(std::size_t i = 0; i < cluster.size(); ++i) {
+                replica(i * structure_.size() + seed_vertex) *= cluster[i];
+            }
+        }
+    }
+}
+
 bool PopulationAnnealing::IsLocalMinimum(StateVector& replica) {
     for(int k = 0; k < replica.size(); ++k) {
         if(DeltaProblemEnergy(replica, k) < 0) {
@@ -235,6 +276,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
             }else {
                 MetropolisSweep(replicas_[k], step.sweeps);
             }
+            WolffSweep(replicas_[k], step.wolff_sweeps);
         }
         total_sweeps += replicas_.size() * step.sweeps;
         

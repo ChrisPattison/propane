@@ -109,6 +109,9 @@ protected:
 /** Carries out moves monte carlo sweeps of replica using the Heatbath algorithm.
  */
     virtual void HeatbathSweep(StateVector& replica, int moves);
+/** Carries out moves*quantum sites Wolff cluster moves of replica
+ */
+    virtual void WolffSweep(StateVector& replica, int moves);
 /** Returns true if a move may be made that reduces the total energy.
  */
     bool IsLocalMinimum(StateVector& replica);
