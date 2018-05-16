@@ -284,6 +284,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
 
         observables.beta = beta_;
         observables.gamma = step.gamma;
+        observables.lambda = step.lambda;
         observables.d = coeff_D_;
         observables.p = coeff_P_;
         observables.population = replicas_.size();
