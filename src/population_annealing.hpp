@@ -130,11 +130,11 @@ protected:
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
  */
-    virtual double Resample(double new_beta, double new_gamma, double new_population_fraction);
+    virtual double Resample(double new_beta, double new_gamma, double new_lambda, double new_population_fraction);
 /** Changes coeff_P, coeff_D, and beta for a particular transverse field
  * Do not change beta and gamma directly
  */
-    void SetParams(double new_gamma, double new_beta);
+    void SetParams(double new_beta, double new_gamma, double new_lambda);
 public:
 
     PopulationAnnealing() = delete;

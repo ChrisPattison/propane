@@ -259,7 +259,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     }
 
     std::iota(replica_families_.begin(), replica_families_.end(), 0);
-    SetParams(schedule_.front().gamma, schedule_.front().beta);
+    SetParams(schedule_.front().beta, schedule_.front().gamma, schedule_.front().lambda);
     std::vector<double> energy;
 
     auto total_time_start = std::chrono::high_resolution_clock::now();
@@ -269,7 +269,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         Result observables;
 
         auto time_start = std::chrono::high_resolution_clock::now();
-        observables.norm_factor = Resample(step.beta, step.gamma, step.population_fraction);
+        observables.norm_factor = Resample(step.beta, step.gamma, step.lambda, step.population_fraction);
         for(std::size_t k = 0; k < replicas_.size(); ++k) {
             if(step.heat_bath) {
                 HeatbathSweep(replicas_[k], step.sweeps);
@@ -390,11 +390,11 @@ bool PopulationAnnealing::AcceptedMove(double log_probability) {
     return std::exp(log_probability) > test;
 }
 
-double PopulationAnnealing::Resample(double new_beta, double new_gamma, double new_population_fraction) {
+double PopulationAnnealing::Resample(double new_beta, double new_gamma, double new_lambda, double new_population_fraction) {
     auto old_driver_coeff = coeff_D_;
     auto old_problem_coeff = coeff_P_;
     auto old_beta = beta_;
-    SetParams(new_gamma, new_beta);
+    SetParams(new_beta, new_gamma, new_lambda);
     auto new_driver_coeff = coeff_D_;
     auto new_problem_coeff = coeff_P_;
 
@@ -427,9 +427,9 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
     return std::exp(log_norm);
 }
 
-void PopulationAnnealing::SetParams(double new_gamma, double new_beta) {
+void PopulationAnnealing::SetParams(double new_beta, double new_gamma, double new_lambda) {
     beta_ = new_beta;
     coeff_D_ = std::log(std::tanh(beta_ * new_gamma / trotter_slices_)) / (2.0 * beta_);
-    coeff_P_ = 1.0/trotter_slices_;
+    coeff_P_ = new_lambda/trotter_slices_;
 }
 }
