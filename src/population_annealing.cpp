@@ -406,6 +406,10 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
 
     average_population_ = new_population_fraction * init_population_;
     
+    if(average_population_ == 1.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
     std::vector<double> log_weights(replicas_.size());
     std::transform(replicas_.begin(), replicas_.end(), log_weights.begin(), [&](auto& r) {
         auto driver_energy = this->DriverHamiltonian(r);
