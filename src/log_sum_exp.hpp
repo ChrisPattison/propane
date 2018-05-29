@@ -34,7 +34,7 @@ double LogSumExp(InputIt first, InputIt last) {
         return std::numeric_limits<double>::quiet_NaN();
     }
 
-    auto max = *std::max(first, last);
+    auto max = *std::max_element(first, last);
     double sum = 0.0;
     for(auto it = first; it != last; ++it) {
         sum += std::exp(*it - max);
