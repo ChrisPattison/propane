@@ -24,6 +24,7 @@
  
 #include "population_annealing.hpp"
 #include "compare.hpp"
+#include "log_sum_exp.hpp"
 #include <cmath>
 #include <cassert>
 #include <iostream>
@@ -308,23 +309,28 @@ bool PopulationAnnealing::AcceptedMove(double log_probability) {
 }
 
 double PopulationAnnealing::Resample(double new_beta, double new_population_fraction) {
+
     std::vector<StateVector> resampled_replicas;
     std::vector<int> resampled_families;
     resampled_replicas.reserve(replicas_.size());
     resampled_families.reserve(replicas_.size());
 
     average_population_ = new_population_fraction * init_population_;
-
-    Eigen::VectorXd weighting(replicas_.size());
-    for(std::size_t k = 0; k < replicas_.size(); ++k) {
-        weighting(k) = std::exp(-(new_beta-beta_) * Hamiltonian(replicas_[k]));
-    }
     
-    double summed_weights = weighting.sum();
-    double normalize = average_population_ / summed_weights;
+    if(average_population_ == 1.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    std::vector<double> log_weights(replicas_.size());
+    std::transform(replicas_.begin(), replicas_.end(), log_weights.begin(), [&](auto& r) {
+        return -(new_beta-beta_) * this->Hamiltonian(r);
+    });
+
+    auto log_norm = util::LogSumExp(log_weights.begin(), log_weights.end());
+
     for(std::size_t k = 0; k < replicas_.size(); ++k) {
-        double weight = normalize * weighting(k);
-        unsigned int n = (weight - std::floor(weight)) > rng_.Probability() ? std::ceil(weight) : std::floor(weight);
+        double weight = average_population_ * std::exp(log_weights[k] - log_norm);
+        unsigned int n = (weight - std::floor(weight)) > rng_.Probability() ? static_cast<unsigned int>(std::ceil(weight)) : static_cast<unsigned int>(std::floor(weight));
         for(std::size_t i = 0; i < n; ++i) {
             resampled_replicas.push_back(replicas_[k]);
             resampled_families.push_back(replica_families_[k]);
@@ -334,6 +340,6 @@ double PopulationAnnealing::Resample(double new_beta, double new_population_frac
     beta_ = new_beta;
     replicas_ = resampled_replicas;
     replica_families_ = resampled_families;
-    return summed_weights;
+    return std::exp(log_norm);
 }
 }
