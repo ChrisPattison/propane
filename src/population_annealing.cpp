@@ -62,22 +62,6 @@ std::vector<std::pair<int, int>> PopulationAnnealing::BuildReplicaPairs() {
     return pairs;
 }
 
-std::vector<PopulationAnnealing::Result::Histogram> PopulationAnnealing::BuildHistogram(const std::vector<double>& samples) {
-    std::vector<Result::Histogram> hist;
-    for(auto v : samples) {
-        auto it = std::lower_bound(hist.begin(), hist.end(), v, [&](const Result::Histogram& a, const double& b) { return a.bin < b && !util::FuzzyCompare(a.bin, b); });
-        if(it==hist.end() || !util::FuzzyCompare(v, it->bin)) {
-            hist.insert(it, {v, 1.0});
-        } else {
-            it->value++;
-        }
-    }
-    for(auto& bin : hist) {
-        bin.value /= samples.size();
-    }
-    return hist;
-}
-
 std::vector<double> PopulationAnnealing::FamilyCount() {
     std::vector<double> count;
     count.reserve(replica_families_.size());
@@ -220,30 +204,6 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, int moves) {
     }
 }
 
-bool PopulationAnnealing::IsLocalMinimum(StateVector& replica) {
-    for(int k = 0; k < replica.size(); ++k) {
-        if(DeltaProblemEnergy(replica, k) < 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
-double PopulationAnnealing::Overlap(StateVector& alpha, StateVector& beta) {
-    return (alpha.array() * beta.array()).cast<double>().sum() / structure_.size();
-}
-
-double PopulationAnnealing::LinkOverlap(StateVector& alpha, StateVector& beta) {
-    double ql = 0;
-    for(std::size_t k = 0; k < structure_.Adjacent().outerSize(); ++k) {
-        for(Eigen::SparseTriangularView<Eigen::SparseMatrix<EdgeType>,Eigen::Upper>::InnerIterator 
-            it(structure_.Adjacent().triangularView<Eigen::Upper>(), k); it; ++it) {
-            ql += alpha(k) * beta(k) * alpha(it.index()) * beta(it.index());
-        }
-    }
-    return ql / structure_.edges();
-}
-
 std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     std::vector<Result> results;
 
@@ -315,42 +275,6 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
                 // Mean Square Family Size
                 observables.mean_square_family_size = observables.population * 
                     std::accumulate(family_size.begin(), family_size.end(), 0.0, [](double acc, double n) {return acc + n*n; });
-
-                if(step.energy_dist) {
-                    // Energy
-                    observables.energy_distribution = BuildHistogram(energy);
-                }
-                
-                if(step.ground_dist) {
-                    std::vector<StateVector> ground_states;
-                    std::vector<double> samples;
-                    samples.reserve(observables.grounded_replicas);
-                    for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                        if(util::FuzzyCompare(observables.ground_energy, energy[k])) {
-                            auto state = std::distance(ground_states.begin(), std::find(ground_states.begin(), ground_states.end(), replicas_[k]));
-                            if(state == ground_states.size()) {
-                                ground_states.push_back(replicas_[k]);
-                            }
-                            
-                            samples.push_back(state);
-                        }
-                    }
-                    observables.ground_distribution = BuildHistogram(samples);
-                }
-            }
-
-            if(step.overlap_dist) {
-                // Overlap
-                std::vector<std::pair<int, int>> overlap_pairs = BuildReplicaPairs();
-                std::vector<double> overlap_samples(overlap_pairs.size());
-
-                std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
-                    [&](std::pair<int, int> p){return Overlap(replicas_[p.first], replicas_[p.second]);});
-                observables.overlap = BuildHistogram(overlap_samples);
-                // Link Overlap
-                std::transform(overlap_pairs.begin(), overlap_pairs.end(), overlap_samples.begin(),
-                    [&](std::pair<int, int> p){return LinkOverlap(replicas_[p.first], replicas_[p.second]);});
-                observables.link_overlap = BuildHistogram(overlap_samples);
             }
 
             observables.seed = rng_.GetSeed();

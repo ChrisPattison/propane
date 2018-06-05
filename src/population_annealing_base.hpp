@@ -33,14 +33,6 @@ class PopulationAnnealingBase {
 /** Observables for a single step.
  */
     struct Result {
-        struct Histogram {
-            double bin;
-            double value;
-        };
-        std::vector<Histogram> overlap;
-        std::vector<Histogram> link_overlap;
-        std::vector<Histogram> energy_distribution;
-        std::vector<Histogram> ground_distribution;
         double beta = std::numeric_limits<double>::quiet_NaN();
         double d = std::numeric_limits<double>::quiet_NaN();
         double p = std::numeric_limits<double>::quiet_NaN();
@@ -70,8 +62,6 @@ class PopulationAnnealingBase {
         int wolff_sweeps = 0;
         bool heat_bath = false;
         bool overlap_dist = false;
-        bool energy_dist = false;
-        bool ground_dist = false;
         bool compute_observables = false;
         double population_fraction = 1.0;
     };

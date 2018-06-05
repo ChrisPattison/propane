@@ -103,9 +103,6 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
             config->schedule.back().wolff_sweeps = item.second.get("wolff_sweeps", default_wolff);
             config->schedule.back().heat_bath = item.second.get("heat_bath", false);
             config->schedule.back().compute_observables = item.second.get("compute_observables", true);
-            config->schedule.back().overlap_dist = item.second.get("overlap_hist", false);
-            config->schedule.back().energy_dist = item.second.get("energy_hist", false);
-            config->schedule.back().ground_dist = item.second.get("ground_hist", false);
         }
     } catch(std::exception& e) {
         util::Check(false, "Config parsing failed.");

@@ -19,11 +19,8 @@ add_executable(
     random_number_generator.cpp 
     parse.cpp 
     output.cpp
-    parallel_population_annealing.cpp 
-    parallel.cpp 
     population_annealing.cpp 
     string_util.cpp 
-    parallel_types.cpp 
     compare.cpp
     log_lookup.cpp
 )
@@ -46,20 +43,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
-
-find_package(MPI REQUIRED)
-include_directories(${MPI_INCLUDE_PATH})
-set(LIBS ${LIBS} ${MPI_LIBRARIES})
-
-if(MPI_COMPILE_FLAGS)
-  set_target_properties(propane PROPERTIES
-    COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-endif()
-
-if(MPI_LINK_FLAGS)
-  set_target_properties(propane PROPERTIES
-    LINK_FLAGS "${MPI_LINK_FLAGS}")
-endif()
 
 set(LIBS ${LIBS} dSFMT)
 

@@ -112,20 +112,6 @@ protected:
 /** Carries out moves*quantum sites Wolff cluster moves of replica
  */
     virtual void WolffSweep(StateVector& replica, int moves);
-/** Returns true if a move may be made that reduces the total energy.
- */
-    bool IsLocalMinimum(StateVector& replica);
-/** Returns the overlap between replicas alpha and beta.
- */
-    double Overlap(StateVector& alpha, StateVector& beta);
-/** Returns the link overlap between replicas alpha and beta.
- */
-    double LinkOverlap(StateVector& alpha, StateVector& beta);
-/** Given computes a histogram of the samples.
- * Does not attempt to find the bins that are zero.
- * Normalizes the values so that the sum of the values is 1.
- */
-    std::vector<Result::Histogram> BuildHistogram(const std::vector<double>& samples);
 /** Resamples population according to the Boltzmann distribution.
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
