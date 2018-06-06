@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 
     // Print Help
     if(var_map.count("help") || argc == 1) {
-        std::cout << "Population Simulated Quantum Annealing";
+        std::cout << "Population Simulated Quantum Annealing" << std::endl;
         std::cout << "C. Pattison" << std::endl << std::endl;
         std::cout << "Usage: " << argv[0] << " [options] <config> <bondfile>" << std::endl;
         std::cout << description << std::endl;
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     }
 
     if(var_map.count("version")) {
-        std::cout << "Population Simulated Quantum Annealing";
+        std::cout << "Population Simulated Quantum Annealing" << std::endl;
         std::cout << "Branch: " << psqa::version::kRefSpec << std::endl;
         std::cout << "Commit: " << std::string(psqa::version::kCommitHash).substr(0, 8) << std::endl;
         std::cout << "Build:  " << psqa::version::kBuildType << std::endl;
