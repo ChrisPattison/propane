@@ -24,7 +24,7 @@
  
 #pragma once
 
-namespace propane { namespace util {
+namespace psqa { namespace util {
 /** Fuzzy Comparison of floats by units in last place.
  * Adjacent floats have adjacent integer representation.
  * The different in this representation is a scalable way to compare for equality.

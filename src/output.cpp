@@ -29,7 +29,7 @@
 #include <string>
 #include "compare.hpp"
 
-namespace propane { namespace io {   
+namespace psqa { namespace io {   
 void Header(Graph& model, std::string config_path, std::string bond_path) {
     std::cout << "# Parallel Optimized Population Annealing V" << version::kMajor << "." << version::kMinor << std::endl;
     std::cout << "# C. Pattison" << std::endl;
@@ -81,40 +81,5 @@ void Results(PopulationAnnealing::Result& r) {
         << r.montecarlo_walltime << " " << std::setw(kWidth)
         << r.total_time << " " << std::setw(kWidth)
         << r.total_sweeps << " ";
-}
-
-void IjjDump(Graph& model, std::ostream& stream) {
-    stream << std::endl << kMagicString << std::endl << "# Input" << std::endl;
-    auto round_mode = std::fegetround();
-    std::fesetround(FE_TONEAREST);
-    stream << model.size() << kOutputSeperator << kOutputCouplerCoeff << std::endl;
-    // Coefficients
-    for(std::size_t k = 0; k < model.Adjacent().outerSize(); ++k) {
-        for(Eigen::SparseTriangularView<Eigen::SparseMatrix<EdgeType>,Eigen::Upper>::InnerIterator 
-            it(model.Adjacent().triangularView<Eigen::Upper>(), k); it; ++it) {
-            double value = kOutputCouplerCoeff * it.value();
-            stream << k << kOutputSeperator << it.index() << kOutputSeperator;
-            if(util::FuzzyUlpCompare(value, std::lrint(value), 100)) {
-                stream << std::lrint(value);
-            }else {
-                stream << value;
-            }
-            stream << std::endl;
-        }
-    }
-    // Fields
-    if(model.has_field()) {
-        for(std::size_t k = 0; k < model.Fields().size(); ++k) {
-            stream << k << kOutputSeperator << k << kOutputSeperator;
-            double value = kOutputCouplerCoeff * model.Fields()[k];
-            if(util::FuzzyUlpCompare(value, std::lrint(value), 100)) {
-                stream << std::lrint(value);
-            }else {
-                stream << value;
-            }
-            stream << std::endl;
-        }
-    }
-    std::fesetround(round_mode);
 }
 }}

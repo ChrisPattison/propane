@@ -30,7 +30,6 @@
 #include "output.hpp"
 #include "population_annealing.hpp"
 #include <boost/program_options.hpp>
-#include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -40,35 +39,35 @@
 
 /** Read model and config for regular PA
  */
-void SinglePaPre(std::string& config_path, std::string& bond_path, propane::Graph* model, propane::PopulationAnnealing::Config* config) {
+void SinglePaPre(std::string& config_path, std::string& bond_path, psqa::Graph* model, psqa::PopulationAnnealing::Config* config) {
     auto file = std::ifstream(config_path);
-    propane::io::ConfigParse(file, config);
+    psqa::io::ConfigParse(file, config);
     file.close();
 
     file = std::ifstream(bond_path);
-    *model = propane::io::IjjParse(file);
+    *model = psqa::io::IjjParse(file);
     file.close();
 
-    propane::io::Header(*model, config_path, bond_path);
+    psqa::io::Header(*model, config_path, bond_path);
 }
 
 /** Output Data for regular PA
  */
-void SinglePaPost(std::vector<propane::PopulationAnnealing::Result>& results, propane::Graph& model) {
-    propane::io::ColumnNames();
+void SinglePaPost(std::vector<psqa::PopulationAnnealing::Result>& results, psqa::Graph& model) {
+    psqa::io::ColumnNames();
     std::cout << std::endl;
     for(auto& r : results) {
-        propane::io::Results(r);
+        psqa::io::Results(r);
         std::cout << std::endl;
     }
 }
 
 void SinglePa(std::string config_path, std::string bond_path) {
-    propane::Graph model;
-    propane::PopulationAnnealing::Config config;
+    psqa::Graph model;
+    psqa::PopulationAnnealing::Config config;
     SinglePaPre(config_path, bond_path, &model, &config);
 
-    propane::PopulationAnnealing population_annealing(model, config);
+    psqa::PopulationAnnealing population_annealing(model, config);
     auto results = population_annealing.Run();
 
     SinglePaPost(results, model);
@@ -90,7 +89,7 @@ int main(int argc, char** argv) {
         ("config", "configuration file")
         ("version,v", "version number")
         ("bondfile", "file containing graph and couplers")
-        ("mode,m", boost::program_options::value<std::string>()->default_value("1"), "select run mode <1/mpi>");
+        ("mode,m", boost::program_options::value<std::string>()->default_value("1"), "select run mode <1>");
     boost::program_options::variables_map var_map;
     boost::program_options::store(boost::program_options::command_line_parser(argc, argv)
         .options(description).positional(positional_description).run(), var_map);
@@ -98,7 +97,7 @@ int main(int argc, char** argv) {
 
     // Print Help
     if(var_map.count("help") || argc == 1) {
-        std::cout << "Parallel Optimized Population Annealing V" << propane::version::kMajor << "." << propane::version::kMinor << std::endl;
+        std::cout << "Population Simulated Quantum Annealing";
         std::cout << "C. Pattison" << std::endl << std::endl;
         std::cout << "Usage: " << argv[0] << " [options] <config> <bondfile>" << std::endl;
         std::cout << description << std::endl;
@@ -106,11 +105,11 @@ int main(int argc, char** argv) {
     }
 
     if(var_map.count("version")) {
-        std::cout << "Parallel Optimized Population Annealing V" << propane::version::kMajor << "." << propane::version::kMinor << std::endl;
-        std::cout << "Branch: " << propane::version::kRefSpec << std::endl;
-        std::cout << "Commit: " << std::string(propane::version::kCommitHash).substr(0, 8) << std::endl;
-        std::cout << "Build:  " << propane::version::kBuildType << std::endl;
-        std::cout << "Built:  " << propane::version::kBuildTime << std::endl;
+        std::cout << "Population Simulated Quantum Annealing";
+        std::cout << "Branch: " << psqa::version::kRefSpec << std::endl;
+        std::cout << "Commit: " << std::string(psqa::version::kCommitHash).substr(0, 8) << std::endl;
+        std::cout << "Build:  " << psqa::version::kBuildType << std::endl;
+        std::cout << "Built:  " << psqa::version::kBuildTime << std::endl;
         return EXIT_SUCCESS;
     }
 

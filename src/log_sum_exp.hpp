@@ -27,7 +27,7 @@
 #include <numeric>
 #include <limits>
 
-namespace propane { namespace util {
+namespace psqa { namespace util {
 template<typename InputIt>
 double LogSumExp(InputIt first, InputIt last) {
     if(std::distance(first, last) == 0) {

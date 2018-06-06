@@ -31,7 +31,7 @@
 #include "version.hpp"
 #include "string_util.hpp"
 
-namespace propane { namespace io {
+namespace psqa { namespace io {
 
 constexpr int kWidth = 18;
 constexpr int kHeaderWidth = kWidth + 1;
@@ -45,8 +45,4 @@ void Header(Graph& model, std::string config_path, std::string bond_path);
 void ColumnNames();
 
 void Results(PopulationAnnealing::Result& result);
-
-/** Opposite of IjjParse: Dumps bonds to file.
- */
-void IjjDump(Graph& model, std::ostream& stream);
 }}

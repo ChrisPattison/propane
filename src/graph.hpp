@@ -24,50 +24,45 @@
  
 #pragma once
 #include "types.hpp"
-#include <Eigen/Sparse>
-#include <Eigen/Dense>
+#include <vector>
 
-namespace propane {
+namespace psqa {
 /** Contains the fields and coefficients as well as useful methods for construction and error checking.
  * Contains an adjacency matrix of the problem where the nonzeros are the value of the coefficient J_ij between S_i and S_j.
  * The field h_i is that felt by S_i.
  */
 class Graph {
-    Eigen::SparseMatrix<EdgeType> adjacent_;
-    Eigen::Matrix<EdgeType, Eigen::Dynamic, 1> fields_;
-    bool field_nonzero_;
+    std::vector<std::vector<IndexType>> adjacent_;
+    std::vector<std::vector<EdgeType>> weights_;
+    std::vector<EdgeType> fields_;
 public:
 /**  Resizes adjacency matrix and field vector.
  *  Zeros out field vector and reserves memory for adjacency matrix.
  */
-    void Resize(int no_vertices, int no_couplers);
+    void Resize(IndexType no_vertices);
 /** Sets the field on a particular vertex.
  */
-    void SetField(int vertex, EdgeType field);
+    void SetField(IndexType vertex, EdgeType field);
 /** Sets a non-zero coefficient between S_from and S_to.
- * This is unidirecational and must be set in both directions in most cases.
+ * This is unidirectional and must be set in both directions in most cases.
  */
-    void AddEdge(int from, int to, EdgeType coupler);
-/** Checks validity of the adjacency matrix.
- * Checks for zero rows and asymmetry.
+    void AddEdge(IndexType from, IndexType to, EdgeType coupler);
+/** Should be called after the graph is fully assembled
+ * Calls shrink_to_fit on all vectors
  */
-    bool IsConsistent() const;
+    void Compress();
 /** Gets number of vertices.
  */
-    int size() const;
-/** Number of edges with bidirectional asumption.
- */
-    int edges() const;
-/** Returns true if a field has been set.
- */
-    bool has_field() const;
+    auto size() const { return adjacent_.size(); }
 /** Reference to adjacency matrix.
  * This will be const in the future.
  */
-    Eigen::SparseMatrix<EdgeType>& Adjacent();
-/** Reference to field vector.
- * This will be const in the future.
+    const auto& adjacent() const { return adjacent_; }
+/** Reference to edge weights
  */
-     Eigen::Matrix<EdgeType, Eigen::Dynamic, 1>& Fields();
+    const auto& weights() const { return weights_; }
+/** Reference to field vector.
+ */
+    const auto& fields() const { return fields_; }
 };
 }

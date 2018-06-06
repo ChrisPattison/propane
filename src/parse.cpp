@@ -37,7 +37,7 @@
 #include "string_util.hpp"
 #include "compare.hpp"
 
-namespace propane { namespace io {
+namespace psqa { namespace io {
 Graph IjjParse(std::istream& file) {
     Graph model;
     try {
@@ -61,7 +61,7 @@ Graph IjjParse(std::istream& file) {
             }
         } while(!file.eof());
         
-        model.Resize(stoi(header[0]), values.size());
+        model.Resize(stoi(header[0]));
         for(auto& v : values) {
             int i = std::get<0>(v);
             int j = std::get<1>(v);
@@ -73,10 +73,8 @@ Graph IjjParse(std::istream& file) {
                 model.SetField(i, coeff);
             }
         }
-        util::Check(model.IsConsistent(), "Missing edge somewhere.");
-        util::Check(model.Adjacent().size() > 0, "No Elements.");
     } catch(std::exception& e) {
-        util::Check(false, "Input parsing failed.");
+        util::Check(false, e.what());
     }
     return model;
 }
@@ -89,20 +87,15 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
         config->population = tree.get<int>("population");
         std::stringstream converter(tree.get<std::string>("seed", "0"));
         converter >> std::hex >> config->seed;
-        int default_sweeps = tree.get<int>("default_sweeps", 10);
         int default_wolff = tree.get<int>("default_wolff", 0);
-        config->solver_mode = tree.get<bool>("solver_mode", false);
-        config->trotter_slices = tree.get<int>("trotter_slices");
         for(auto& item : tree.get_child("schedule")) {
             config->schedule.emplace_back();
             config->schedule.back().beta = item.second.get<double>("beta");
             config->schedule.back().gamma = item.second.get<double>("gamma");
             config->schedule.back().lambda = item.second.get<double>("lambda", 1.0);
             config->schedule.back().population_fraction = item.second.get<double>("population_fraction", 1.0);
-            config->schedule.back().sweeps = item.second.get("sweeps", default_sweeps);
             config->schedule.back().wolff_sweeps = item.second.get("wolff_sweeps", default_wolff);
-            config->schedule.back().heat_bath = item.second.get("heat_bath", false);
-            config->schedule.back().compute_observables = item.second.get("compute_observables", true);
+            config->schedule.back().compute_observables = item.second.get("compute_observables", false);
         }
     } catch(std::exception& e) {
         util::Check(false, "Config parsing failed.");

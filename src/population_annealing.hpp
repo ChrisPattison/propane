@@ -25,26 +25,27 @@
 #pragma once
 #include <vector>
 #include <utility>
+#include <algorithm>
 #include "types.hpp"
 #include "graph.hpp"
 #include "random_number_generator.hpp"
 #include "population_annealing_base.hpp"
 #include "log_lookup.hpp"
-#include <Eigen/Dense>
 
-namespace propane {
+namespace psqa {
 /** Implementation of Population Annealing Monte Carlo.
  * Replicas have an associated entry in the family vector indicating lineage.
  */
 class PopulationAnnealing : public PopulationAnnealingBase {
 protected:
+
     util::LogLookup log_lookup_;
 
     Graph structure_;
 
     RandomNumberGenerator rng_;
 
-    using StateVector = Eigen::Matrix<VertexType, Eigen::Dynamic, 1>;
+    using StateVector = std::vector<VertexType>;
     std::vector<StateVector> replicas_;
     std::vector<int> replica_families_;
 
@@ -59,9 +60,6 @@ protected:
     double coeff_D_;
     bool solver_mode_;
 
-/** Determinstically builds a list of replicas with different Markov Chains.
- */
-    std::vector<std::pair<int, int>> BuildReplicaPairs();
 /** Gets the number of replicas in each family as a fraction of the total population
  */
     std::vector<double> FamilyCount();
@@ -72,51 +70,26 @@ protected:
  * true exponential is computed and compared.
  */
     bool AcceptedMove(double log_probability);
-/** Returns true if a move is accepted according to the Metropolis algorithm.
- */
-    virtual bool MetropolisAcceptedMove(double delta_energy);
-
-/** Uses the Heat Bath algorithm. See MetropolisAcceptedMove.
- */
- 
-    virtual bool HeatbathAcceptedMove(double delta_energy);
 /** Returns the energy of a replica
  * Implemented as the sum of elementwise multiplication of the replica vector with the 
  * product of matrix multiplication between the upper half of the adjacency matrix
  * and the replica.
  */
-    virtual double Hamiltonian(StateVector& replica);
+    double Hamiltonian(const StateVector& replica);
 /** Returns problem energy without weight factor (zeta)
  */
-    virtual double ProblemHamiltonian(StateVector& replica);
-/** Returns the problem energy for a single trotter slice
- */
-    virtual double SliceProblemHamiltonian(StateVector& replica, int slice);
+    double ProblemHamiltonian(const StateVector& replica);
 /** Returns driver energy without weight factor (gamma)
  */
-    virtual double DriverHamiltonian(StateVector& replica);
-/** Returns the energy change associated with flipping spin vertex.
- * Implemented as the dot product of row vertex of the adjacency matrix 
- * with the replica vector multiplied by the spin at vertex.
- */
-    virtual double DeltaProblemEnergy(StateVector& replica, int vertex);
-/** Returns the driver energy change associated with flipping spin vertex.
- */
-    virtual double DeltaDriverEnergy(StateVector& replica, int vertex);
-/** Carries out moves monte carlo sweeps of replica using the Metropolis algorithm.
- */
-    virtual void MetropolisSweep(StateVector& replica, int moves);
-/** Carries out moves monte carlo sweeps of replica using the Heatbath algorithm.
- */
-    virtual void HeatbathSweep(StateVector& replica, int moves);
+    double DriverHamiltonian(const StateVector& replica);
 /** Carries out moves*quantum sites Wolff cluster moves of replica
  */
-    virtual void WolffSweep(StateVector& replica, int moves);
+    void WolffSweep(StateVector& replica, std::size_t moves);
 /** Resamples population according to the Boltzmann distribution.
  * Attempts to maintain approximately the same population as detailed in arXiv:1508.05647
  * Returns the normalization factor Q as a byproduct.
  */
-    virtual double Resample(double new_beta, double new_gamma, double new_lambda, double new_population_fraction);
+    double Resample(double new_beta, double new_gamma, double new_lambda, double new_population_fraction);
 /** Changes coeff_P, coeff_D, and beta for a particular transverse field
  * Do not change beta and gamma directly
  */
@@ -133,12 +106,44 @@ public:
 /** Run solver and return results.
  */
     std::vector<Result> Run();
-
-/** Returns an Eigen VectorBlock for the trotter slice the spin is in
+/** Return the spatial site energy for each trotter slice
  */
-    template<typename vector_type>
-    auto GetTrotterSlice(vector_type& replica, int slice) {
-        return replica.segment(slice * structure_.size(), structure_.size());
+template<typename random_access_iterator>
+void SpatialSiteEnergy(const StateVector& replica, std::uint32_t site, random_access_iterator it) {
+    std::fill(it, it + ktrotter_slices, 0);
+    for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
+        auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
+        auto weight = structure_.weights()[site][edge];
+        auto temporal = it;
+        EvalFunctor(parity, [&](const auto& v) { *temporal++ += v*weight; });
     }
+
+    auto temporal = it;
+    auto field = structure_.fields()[site];
+    EvalFunctor(replica[site], [&](const auto& v) { *temporal++ += v*field; });
+}
+/** Return the problem energy for each trotter slice
+ */
+template<typename random_access_iterator>
+void SpatialProblemHamiltonain(const StateVector& replica, random_access_iterator it) {
+    std::fill(it, it + ktrotter_slices, 0);
+    for(std::size_t site = 0; site < structure_.size(); ++site) {
+        for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
+            auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
+            auto weight = structure_.weights()[site][edge];
+            auto temporal = it;
+            EvalFunctor(parity, [&](const auto& v) { *temporal++ += v*weight; });
+        }
+    }
+
+    std::transform(it, it + ktrotter_slices, it, [](const auto& v) { return v / 2; });
+
+    for(std::size_t site = 0; site < structure_.size(); ++site) {
+        auto field = structure_.fields()[site];
+        auto temporal = it;
+        EvalFunctor(replica[site], [&](const auto& v) { *temporal++ += v*field; });
+    }
+}
+
 };
 }

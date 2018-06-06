@@ -1,11 +1,11 @@
 Bootstrap: docker
-From: fedora:27
+From: fedora:28
 
 %setup
 cp -rf . $SINGULARITY_ROOTFS/src
 
 %runscript
-gdb --args propane "$@"
+gdb --args psqa_solve "$@"
 
 %files
 
@@ -22,9 +22,6 @@ rm -rf build
 mkdir build
 cd build
 
-wget bitbucket.org/eigen/eigen/get/3.2.10.tar.bz2
-tar -xjf 3.2.10.tar.bz2
-
-MPI_HOME=/usr/lib64/mpich cmake .. -DCMAKE_BUILD_TYPE=FastDebug -DEIGEN3_INCLUDE_DIR=../build/eigen-eigen-b9cd8366d4e8
+cmake .. -DCMAKE_BUILD_TYPE=FastDebug
 make
 make install

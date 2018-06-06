@@ -13,7 +13,7 @@ add_subdirectory(dSFMT)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dSFMT)
 
 add_executable(
-    propane 
+    psqa_solve 
     main.cpp 
     graph.cpp 
     random_number_generator.cpp 
@@ -25,12 +25,12 @@ add_executable(
     log_lookup.cpp
 )
 
-install(TARGETS propane 
+install(TARGETS psqa_solve 
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
 )
 
-set_target_properties(propane PROPERTIES
+set_target_properties(psqa_solve PROPERTIES
     CXX_STANDARD 14
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
@@ -41,9 +41,6 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 set(LIBS ${LIBS} ${Boost_LIBRARIES})
 include_directories(${Boost_INCLUDE_DIRS})
 
-find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
-
 set(LIBS ${LIBS} dSFMT)
 
-target_link_libraries(propane ${LIBS})
+target_link_libraries(psqa_solve ${LIBS})

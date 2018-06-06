@@ -33,35 +33,9 @@
 #include <iterator>
 #include <numeric>
 #include <chrono>
+#include <array>
 
-namespace propane {
-// Fix this to do something with the single replicas
-std::vector<std::pair<int, int>> PopulationAnnealing::BuildReplicaPairs() {
-    std::vector<std::pair<int, int>> pairs;
-    int num_pairs = replica_families_.size()/2;
-    pairs.reserve(num_pairs);
-
-    for(int k = 0; k < num_pairs; ++k) {
-        pairs.push_back({k, k + num_pairs});
-    }
-
-    // Consistency check
-
-    for(auto& it : pairs) {
-        // this is highly unlikely to be true
-        if(replica_families_[it.first] == replica_families_[it.second]) {
-            for(auto& it_other : pairs) {
-                if(replica_families_[it_other.first] != replica_families_[it.second] && 
-                    replica_families_[it.first] != replica_families_[it_other.second]) {
-                    it.swap(it_other);
-                    break;
-                }
-            }
-        }
-    }
-    return pairs;
-}
-
+namespace psqa {
 std::vector<double> PopulationAnnealing::FamilyCount() {
     std::vector<double> count;
     count.reserve(replica_families_.size());
@@ -80,126 +54,146 @@ PopulationAnnealing::PopulationAnnealing(Graph& structure, Config config) {
     }
 
     schedule_ = config.schedule;
+    schedule_.back().compute_observables = true;
     beta_ = NAN;
     coeff_D_ = NAN;
     coeff_P_ = NAN;
     structure_ = structure;
-    structure_.Adjacent().makeCompressed();
+    structure_.Compress();
     average_population_ = config.population;
     init_population_ = average_population_;
-    solver_mode_ = config.solver_mode;
-    trotter_slices_ = config.trotter_slices;
  }
 
-double PopulationAnnealing::Hamiltonian(StateVector& replica) {
+double PopulationAnnealing::Hamiltonian(const StateVector& replica) {
     return coeff_P_ * ProblemHamiltonian(replica) + coeff_D_ * DriverHamiltonian(replica);
 }
 
-double PopulationAnnealing::DriverHamiltonian(StateVector& replica) {
+double PopulationAnnealing::DriverHamiltonian(const StateVector& replica) {
     double energy = 0;
-    for(int qvertex = 0; qvertex < structure_.size(); ++qvertex) {
-        for(int slice = 0; slice < trotter_slices_; ++slice) {
-            energy += replica(qvertex + slice * structure_.size()) * replica(qvertex + (slice+1+trotter_slices_)%trotter_slices_ * structure_.size());
-        }
+    for(std::size_t site = 0; site < structure_.size(); ++site) {
+        auto parity = replica[site] ^ Rotate(replica[site], 1);
+        energy += EvalFunctor(parity, [&](const auto& v) { return v; }, 0);
     }
     return energy;
 }
 
-double PopulationAnnealing::ProblemHamiltonian(StateVector& replica) {
-    // There should be a way to construct a view on a full block diagonal adjacency matrix
+double PopulationAnnealing::ProblemHamiltonian(const StateVector& replica) {
     double energy = 0;
-    for(auto slice = 0; slice < trotter_slices_; ++slice) {
-        energy += SliceProblemHamiltonian(replica, slice);
+    for(std::size_t site = 0; site < structure_.size(); ++site) {
+        for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
+            auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
+            auto weight = structure_.weights()[site][edge];
+            energy += EvalFunctor(parity, [&](const auto& v) { return v*weight; }, static_cast<decltype(energy)>(0));
+        }
+    }
+    energy /= 2;
+
+    for(std::size_t site = 0; site < structure_.size(); ++site) {
+        auto field = structure_.fields()[site];
+        energy += EvalFunctor(replica[site], [&](const auto& v) { return v*field; }, static_cast<decltype(energy)>(0));
     }
     return energy;
 }
 
-double PopulationAnnealing::SliceProblemHamiltonian(StateVector& replica, int slice) {
-    if(structure_.has_field()) {
-        return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>() - structure_.Fields()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
-    }else {
-        return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
-    }
-}
+// double PopulationAnnealing::SliceProblemHamiltonian(StateVector& replica, int slice) {
+//     return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
+// }
 
-double PopulationAnnealing::DeltaProblemEnergy(StateVector& replica, int vertex) {
-    auto slice = vertex / structure_.size();
-    return -2 * replica(vertex) * (structure_.Adjacent().innerVector(vertex % structure_.size()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>()) - structure_.Fields()(vertex % structure_.size()));
-}
+// double PopulationAnnealing::DeltaProblemEnergy(StateVector& replica, int vertex) {
+//     auto slice = vertex / structure_.size();
+//     return -2 * replica(vertex) * (structure_.Adjacent().innerVector(vertex % structure_.size()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>()) - structure_.Fields()(vertex % structure_.size()));
+// }
 
-double PopulationAnnealing::DeltaDriverEnergy(StateVector& replica, int vertex) {
-    auto slice = vertex / structure_.size();
-    auto stride = structure_.size();
-    return -2 * replica(vertex) * ( replica((slice + stride)%replica.size()) + replica(((slice + replica.size()) - stride)%replica.size()) );
-}
+// double PopulationAnnealing::DeltaDriverEnergy(StateVector& replica, int vertex) {
+//     auto slice = vertex / structure_.size();
+//     auto stride = structure_.size();
+//     return -2 * replica(vertex) * ( replica((slice + stride)%replica.size()) + replica(((slice + replica.size()) - stride)%replica.size()) );
+// }
 
-void PopulationAnnealing::MetropolisSweep(StateVector& replica, int sweeps) {
-    for(std::size_t k = 0; k < sweeps; ++k) {
-        for(std::size_t i = 0; i < replica.size(); ++i) {
-            int vertex = i;
-            double delta_problem_energy = DeltaProblemEnergy(replica, vertex);
-            double delta_driver_energy = DeltaDriverEnergy(replica, vertex);
-            double delta_energy = coeff_P_ * delta_problem_energy + coeff_D_ * delta_driver_energy;
+// void PopulationAnnealing::WolffSweep(StateVector& replica, int moves) {
+//     std::vector<char> cluster(ktrotter_slices);
+//     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
+//     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
+//         // Setup
+//         std::fill(cluster.begin(), cluster.end(), 1);
+//         int seed = rng_.Range(replica.size());
+//         int site = seed % structure_.size();
+//         int seed_slice = seed / structure_.size();
+//         double delta_energy = DeltaProblemEnergy(replica, seed);
+//         cluster[seed_slice] = -1;
 
-            //round-off isn't a concern here
-            if(MetropolisAcceptedMove(delta_energy)) {
-                replica(vertex) *= -1;
-            }
-        }
-    }
-}
+//         // Grow cluster upwards and downwards
+//         for(auto direction : {1, -1}) {
+//             int prev_slice = seed_slice;
+//             for(int next_slice = (prev_slice + direction + ktrotter_slices)%ktrotter_slices; cluster[next_slice] == 1;
+//                 next_slice = (prev_slice + direction + ktrotter_slices)%ktrotter_slices) {
 
-void PopulationAnnealing::HeatbathSweep(StateVector& replica, int sweeps) {
-    for(std::size_t k = 0; k < sweeps; ++k) {
-        for(std::size_t vertex = 0; vertex < replica.size(); ++vertex) {
-            double delta_problem_energy = DeltaProblemEnergy(replica, vertex);
-            double delta_driver_energy = DeltaDriverEnergy(replica, vertex);
-            double delta_energy = coeff_P_ * delta_problem_energy + coeff_D_ * delta_driver_energy;
+//                 int prev_spin = prev_slice * structure_.size() + site;
+//                 int next_spin = next_slice * structure_.size() + site;
 
-            if(HeatbathAcceptedMove(delta_energy)) {
-                replica(vertex) *= -1;
-            }
-        }
-    }
-}
+//                 if(replica(next_spin) == replica(prev_spin) && rng_.Probability() < growth_prob) {
+//                     cluster[next_slice] = -1;
+//                     delta_energy += DeltaProblemEnergy(replica, next_spin);
+//                 }else {
+//                     break;
+//                 }
+//                 prev_slice = next_slice;
+//             }
+//         }
+        
+//         // Attempt to flip
+//         delta_energy *= coeff_P_;
+//         if(MetropolisAcceptedMove(delta_energy)) {
+//             for(std::size_t i = 0; i < cluster.size(); ++i) {
+//                 replica(i * structure_.size() + site) *= cluster[i];
+//             }
+//         }
+//     }
+// }
 
-void PopulationAnnealing::WolffSweep(StateVector& replica, int moves) {
-    std::vector<char> cluster(trotter_slices_);
+void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
-        // Setup
-        std::fill(cluster.begin(), cluster.end(), 1);
-        int seed = rng_.Range(replica.size());
-        int seed_vertex = seed % structure_.size();
-        int seed_slice = seed / structure_.size();
-        double delta_energy = DeltaProblemEnergy(replica, seed);
-        cluster[seed_slice] = -1;
 
-        // Grow cluster upwards and downwards
+        std::uint32_t seed = rng_.Range(replica.size());
+        std::uint32_t site = seed % structure_.size();
+        std::uint32_t seed_slice = seed / structure_.size();
+        VertexType cluster = 1 << seed_slice;
+        VertexType spins = replica[site];
+        // Spins of the same parity evaluate to true
+        spins = (spins & cluster) ? spins : !spins;
+
+        // Build Cluster
+        // Note: it may be faster to evaluate growth prob all at once
         for(auto direction : {1, -1}) {
-            int prev_slice = seed_slice;
-            for(int next_slice = (prev_slice + direction + trotter_slices_)%trotter_slices_; cluster[next_slice] == 1;
-                next_slice = (prev_slice + direction + trotter_slices_)%trotter_slices_) {
-
-                int prev_spin = prev_slice * structure_.size() + seed_vertex;
-                int next_spin = next_slice * structure_.size() + seed_vertex;
-
-                if(replica(next_spin) == replica(prev_spin) && rng_.Probability() < growth_prob) {
-                    cluster[next_slice] = -1;
-                    delta_energy += DeltaProblemEnergy(replica, next_spin);
-                }else {
+            VertexType mask = 1 << seed_slice;
+            for(std::size_t i = 0; i < ktrotter_slices; ++i) {
+                mask = Rotate(mask, direction);
+                if(spins & mask && rng_.Probability() < growth_prob) {
+                    cluster |= mask;
+                } else {
                     break;
                 }
-                prev_slice = next_slice;
+                if(cluster == std::numeric_limits<decltype(cluster)>::max()) {
+                    break;
+                }
             }
         }
-        
-        // Attempt to flip
-        delta_energy *= coeff_P_;
-        if(MetropolisAcceptedMove(delta_energy)) {
-            for(std::size_t i = 0; i < cluster.size(); ++i) {
-                replica(i * structure_.size() + seed_vertex) *= cluster[i];
-            }
+
+        // Compute spatial energy delta
+        std::array<double, ktrotter_slices> site_delta_energy;
+        SpatialSiteEnergy(replica, site, site_delta_energy.begin());
+        double delta_energy = 0;
+        VertexType mask = 1;
+        for(std::size_t i = 0; i < trotter_slices_; ++i) {
+            delta_energy += mask & cluster ? site_delta_energy[i] : 0;
+        }
+        delta_energy += structure_.fields()[site] * GetValue(cluster & replica[site]) * PopCount(spins & cluster);
+        delta_energy *= -2 * coeff_P_;
+
+        // Flip cluster
+        if(AcceptedMove(-delta_energy*beta_)) {
+            replica[site] ^= cluster;
         }
     }
 }
@@ -212,9 +206,10 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     
     for(auto& r : replicas_) {
         r = StateVector();
-        r.resize(structure_.size()*trotter_slices_);
+        r.resize(structure_.size());
         for(std::size_t k = 0; k < r.size(); ++k) {
-            r(k) = rng_.Probability() < 0.5 ? 1 : -1;
+            static_assert(sizeof(decltype(r[k])) == 8);
+            r[k] = rng_() ^ (static_cast<std::uint64_t>(rng_()) << 32);
         }
     }
 
@@ -231,14 +226,9 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         auto time_start = std::chrono::high_resolution_clock::now();
         observables.norm_factor = Resample(step.beta, step.gamma, step.lambda, step.population_fraction);
         for(std::size_t k = 0; k < replicas_.size(); ++k) {
-            if(step.heat_bath) {
-                HeatbathSweep(replicas_[k], step.sweeps);
-            }else {
-                MetropolisSweep(replicas_[k], step.sweeps);
-            }
             WolffSweep(replicas_[k], step.wolff_sweeps);
         }
-        total_sweeps += replicas_.size() * step.sweeps;
+        total_sweeps += replicas_.size() * step.wolff_sweeps;
         
         observables.montecarlo_walltime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - time_start).count();
 
@@ -249,57 +239,48 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         observables.p = coeff_P_;
         observables.population = replicas_.size();
 
-        if(!solver_mode_ || beta_ == schedule_.back().beta) {
-            if(step.compute_observables) {
-                energy.resize(replicas_.size() * trotter_slices_);
-                for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                    for(std::size_t slice = 0; slice < trotter_slices_; ++slice) {
-                        energy[k*trotter_slices_ + slice] = SliceProblemHamiltonian(replicas_[k], slice);
-                    }
-                }
-                Eigen::Map<Eigen::VectorXd> energy_map(energy.data(), energy.size());
-                // Basic observables
-                observables.average_energy = energy_map.mean();
-                observables.average_squared_energy = energy_map.array().pow(2).mean();
-                observables.ground_energy = energy_map.minCoeff();
-                // Round-off /probably/ isn't an issue here
-                observables.grounded_replicas = energy_map.array().unaryExpr(
-                    [&](double E){return util::FuzzyCompare(E, observables.ground_energy) ? 1 : 0;}).sum();
-                // Family statistics
-                std::vector<double> family_size = FamilyCount();
-                std::transform(family_size.begin(),family_size.end(),family_size.begin(),
-                    [&](double n) -> double {return n /= observables.population;});
-                // Entropy
-                observables.entropy = -std::accumulate(family_size.begin(), family_size.end(), 0.0, 
-                    [](double acc, double n) {return acc + n*std::log(n); });
-                // Mean Square Family Size
-                observables.mean_square_family_size = observables.population * 
-                    std::accumulate(family_size.begin(), family_size.end(), 0.0, [](double acc, double n) {return acc + n*n; });
+        if(step.compute_observables) {
+            energy.resize(replicas_.size() * ktrotter_slices);
+            for(std::size_t k = 0; k < replicas_.size(); ++k) {
+                SpatialProblemHamiltonain(replicas_[k], energy.begin() + k * ktrotter_slices);
             }
-
-            observables.seed = rng_.GetSeed();
-            observables.sweeps = step.sweeps;
-            observables.total_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - total_time_start).count();
-            observables.total_sweeps = total_sweeps;
-            results.push_back(observables);
+            // Basic observables
+            observables.average_energy = std::accumulate(energy.begin(), energy.end(), 0.0)/energy.size();
+            observables.average_squared_energy = std::accumulate(energy.begin(), energy.end(), 0.0, [](const auto& acc, const auto& v) { return acc + v*v; })/energy.size();
+            observables.ground_energy = *std::min_element(energy.begin(), energy.end());
+            // Round-off /probably/ isn't an issue here
+            observables.grounded_replicas = std::accumulate(energy.begin(), energy.end(), 0, [&](const auto& acc, const auto& v) {
+                return acc + (util::FuzzyCompare(v, observables.ground_energy) ? 1 : 0);
+            });
+            // Family statistics
+            std::vector<double> family_size = FamilyCount();
+            std::transform(family_size.begin(),family_size.end(),family_size.begin(),
+                [&](double n) -> double {return n /= observables.population;});
+            // Entropy
+            observables.entropy = -std::accumulate(family_size.begin(), family_size.end(), 0.0, 
+                [](double acc, double n) {return acc + n*std::log(n); });
+            // Mean Square Family Size
+            observables.mean_square_family_size = observables.population * 
+                std::accumulate(family_size.begin(), family_size.end(), 0.0, [](double acc, double n) {return acc + n*n; });
         }
+
+        observables.seed = rng_.GetSeed();
+        observables.sweeps = step.wolff_sweeps;
+        observables.total_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - total_time_start).count();
+        observables.total_sweeps = total_sweeps;
+        results.push_back(observables);
     }
     return results;
 }
 
-bool PopulationAnnealing::HeatbathAcceptedMove(double delta_energy) {
-    double accept_prob = 1.0/(1.0 + std::exp(-delta_energy*beta_));
-    return rng_.Probability() < accept_prob;
-}
-
-bool PopulationAnnealing::MetropolisAcceptedMove(double delta_energy) {
-    if(delta_energy < 0.0) {
-        return true;
-    }
+// bool PopulationAnnealing::MetropolisAcceptedMove(double delta_energy) {
+//     if(delta_energy < 0.0) {
+//         return true;
+//     }
     
-    double acceptance_prob_exp = -delta_energy*beta_;
-    return AcceptedMove(acceptance_prob_exp);
-}
+//     double acceptance_prob_exp = -delta_energy*beta_;
+//     return AcceptedMove(acceptance_prob_exp);
+// }
 
 bool PopulationAnnealing::AcceptedMove(double log_probability) {
     double test = rng_.Probability();
@@ -358,7 +339,7 @@ double PopulationAnnealing::Resample(double new_beta, double new_gamma, double n
 
 void PopulationAnnealing::SetParams(double new_beta, double new_gamma, double new_lambda) {
     beta_ = new_beta;
-    coeff_D_ = std::log(std::tanh(beta_ * new_gamma / trotter_slices_)) / (2.0 * beta_);
-    coeff_P_ = new_lambda/trotter_slices_;
+    coeff_D_ = std::log(std::tanh(beta_ * new_gamma / ktrotter_slices)) / (2.0 * beta_);
+    coeff_P_ = new_lambda/ktrotter_slices;
 }
 }

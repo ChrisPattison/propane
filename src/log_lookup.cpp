@@ -26,7 +26,7 @@
 #include <cmath>
 #include <limits>
 
-namespace propane { namespace util {
+namespace psqa { namespace util {
     
 LogLookup::LogLookup() {
     lookup_table_.resize(kLookupTableSize);

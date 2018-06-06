@@ -29,7 +29,7 @@
 #include <chrono>
 #include <cassert>
 
-namespace propane {
+namespace psqa {
     
 RandomNumberGenerator::RandomNumberGenerator(std::uint64_t seed) {
     seed_ = seed;
@@ -92,5 +92,9 @@ std::uint64_t RandomNumberGenerator::GetSeed() {
 
 int RandomNumberGenerator::Range(int N) {
     return std::floor(Probability() * N);
+}
+
+std::uint32_t RandomNumberGenerator::operator()() {
+    return dsfmt_genrand_uint32(state_);
 }
 }

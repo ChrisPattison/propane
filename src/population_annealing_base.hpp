@@ -26,7 +26,7 @@
 #include <vector>
 #include <limits>
 
-namespace propane  {
+namespace psqa  {
     
 class PopulationAnnealingBase {
     public:
@@ -58,10 +58,7 @@ class PopulationAnnealingBase {
         double beta;
         double gamma;
         double lambda;
-        int sweeps = 10;
         int wolff_sweeps = 0;
-        bool heat_bath = false;
-        bool overlap_dist = false;
         bool compute_observables = false;
         double population_fraction = 1.0;
     };
@@ -69,10 +66,8 @@ class PopulationAnnealingBase {
  */
     struct Config {
         int population;
-        int trotter_slices;
         std::uint64_t seed;
         std::vector<PopulationAnnealingBase::Schedule> schedule;
-        bool solver_mode = false;
     };
 };
 }

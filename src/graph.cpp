@@ -24,60 +24,33 @@
  
 #include "graph.hpp"
 
-namespace propane {
+namespace psqa {
 
-void Graph::Resize(int no_vertices, int no_couplers) {
+void Graph::Resize(IndexType no_vertices) {
     fields_.resize(no_vertices);
-    fields_.setZero();
-    field_nonzero_ = false;
-    adjacent_.resize(no_vertices, no_vertices);
-    adjacent_.reserve(no_couplers);
+    std::fill(fields_.begin(), fields_.end(), 0);
+    adjacent_.clear();
+    adjacent_.resize(no_vertices);
+
+    weights_.clear();
+    weights_.resize(no_vertices);
+
+    fields_.shrink_to_fit();
+    adjacent_.shrink_to_fit();
+    weights_.shrink_to_fit();
 }
 
-void Graph::SetField(int vertex, EdgeType field) {
-    field_nonzero_ = true;
-    fields_(vertex) = field;
+void Graph::SetField(IndexType vertex, EdgeType field) {
+    fields_.at(vertex) = field;
 }
 
-void Graph::AddEdge(int from, int to, EdgeType coupler) {
-    adjacent_.insert(from, to) = coupler;
+void Graph::AddEdge(IndexType from, IndexType to, EdgeType coupler) {
+    adjacent_.at(from).push_back(to);
+    weights_.at(from).push_back(coupler);
 }
 
-
-bool Graph::IsConsistent() const {
-    bool not_consistent = false;
-    for(std::size_t k = 0; k < adjacent_.outerSize(); ++k) {
-        bool zero = true;
-        for(Eigen::SparseMatrix<EdgeType>::InnerIterator it(adjacent_, k); it; ++it) {
-            if(std::abs(it.value()) > kEpsilon) {
-                zero = false;
-                break;
-            }
-        }
-        if(zero) {
-            not_consistent = true;
-        }
-    }
-    return !(not_consistent | !adjacent_.isApprox(adjacent_.transpose()));
-}
-
-Eigen::SparseMatrix<EdgeType>& Graph::Adjacent() {
-    return adjacent_;
-}
-
-Eigen::Matrix<EdgeType, Eigen::Dynamic, 1>& Graph::Fields() {
-    return fields_;
-}
-
-bool Graph::has_field() const {
-    return field_nonzero_;
-}
-
-int Graph::size() const {
-    return fields_.size();
-}
-
-int Graph::edges() const {
-    return adjacent_.nonZeros() / 2;
+void Graph::Compress() {
+    for(auto v : adjacent_) { v.shrink_to_fit(); }
+    for(auto v : weights_) { v.shrink_to_fit(); }
 }
 }

@@ -27,7 +27,7 @@
 #include <iterator>
 #include <iostream>
 
-namespace propane { namespace util  {
+namespace psqa { namespace util  {
 
 void Check(bool cond, const char* err) {
     if(!cond) {

@@ -23,10 +23,50 @@
  */
  
 #pragma once
+#include <cstdint>
 
-namespace propane {
+namespace psqa {
     
-using VertexType = char;
+using VertexType = std::uint64_t;
 using EdgeType = double;
+using IndexType = std::size_t;
 const double kEpsilon = 1e-13;
+
+static constexpr unsigned int ktrotter_slices = 64;
+
+/** Map bit masked value to +/- 1
+ */
+template<typename value_type>
+auto GetValue(value_type v) { return v ? 1 : -1; }
+/** Call functor on each value of the multi spin coded bit vector
+ */
+template<typename functor, typename bitvector, typename accumulate>
+auto EvalFunctor(bitvector value, functor function, accumulate init) {
+    auto accumulator = init;
+    for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
+        accumulator += function(GetValue(k & 1U));
+        value >>= 1;
+    }
+    return accumulator;
+}
+/** Call functor on each value of the multi spin coded bit vector
+ */
+template<typename functor, typename bitvector>
+void EvalFunctor(bitvector value, functor function) {
+    for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
+        function(GetValue(k & 1U));
+        value >>= 1;
+    }
+}
+/** Rotate value
+ */
+template<typename value_type>
+value_type Rotate(value_type x, int n) {
+    return (x << n) | (x >> (32 - n));
+}
+
+template<typename value_type>
+value_type PopCount(value_type x) {
+    return __builtin_popcount(x);
+}
 }

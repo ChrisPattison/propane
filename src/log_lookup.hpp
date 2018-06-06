@@ -25,7 +25,7 @@
 #pragma once
 #include <vector>
 
-namespace propane { namespace util {
+namespace psqa { namespace util {
 /** Utility to quickly obtain a bound for the natural logarithm of a value
  */
 class LogLookup {

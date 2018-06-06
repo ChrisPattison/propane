@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.7)
 
-project (PROPANE CXX)
-set (PROPANE_VERSION_MAJOR 2)
-set (PROPANE_VERSION_MINOR 1)
+project (PSQA CXX)
+set (PSQA_VERSION_MAJOR 1)
+set (PSQA_VERSION_MINOR 0)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
 
 # Enable interprocedural optimization if supported

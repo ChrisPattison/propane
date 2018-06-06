@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace propane { namespace util {
+namespace psqa { namespace util {
 /** Basic implemention of assert used for validating inputs.
 */
 void Check(bool cond, const char* err);

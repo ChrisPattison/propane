@@ -29,7 +29,7 @@
 #include <climits>
 #include "dSFMT.h"
 
-namespace propane {
+namespace psqa {
 /** Wrapper around the refreence implementation of dSFMT19937 by Saito and Matsumoto.
  */
 class RandomNumberGenerator {
@@ -63,5 +63,8 @@ public:
 /** Returns an integer uniformly distributed in [0,N).
  */
     int Range(int N);
+/** Return random 32 bits
+ */
+    std::uint32_t operator()();
 };
 }
