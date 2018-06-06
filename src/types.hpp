@@ -72,11 +72,15 @@ void EvalFunctor(bitvector value, functor function) {
 }
 /** Rotate value
  */
-template<typename value_type>
-value_type Rotate(value_type x, int n) {
-    return (x << n) | (x >> (32 - n));
+template<typename value_type, typename = std::enable_if_t<std::is_unsigned<value_type>::value>>
+value_type RotateL(value_type x, int n) {
+    return (x << n) | (x >> ( -n & (ktrotter_slices - 1)));
 }
 
+template<typename value_type, typename = std::enable_if_t<std::is_unsigned<value_type>::value>>
+value_type RotateR(value_type x, int n) {
+    return (x >> -n) | (x << ( n & (ktrotter_slices - 1)));
+}
 template<typename value_type>
 value_type PopCount(value_type x) {
     return __builtin_popcount(x);

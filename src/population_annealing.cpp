@@ -71,7 +71,7 @@ double PopulationAnnealing::Hamiltonian(const StateVector& replica) {
 double PopulationAnnealing::DriverHamiltonian(const StateVector& replica) {
     double energy = 0;
     for(std::size_t site = 0; site < structure_.size(); ++site) {
-        auto parity = replica[site] ^ Rotate(replica[site], 1);
+        auto parity = replica[site] ^ RotateL(replica[site], 1);
         energy += EvalFunctor(parity, [&](const auto& v) { return v; }, 0);
     }
     return energy;
@@ -168,7 +168,7 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         for(auto direction : {1, -1}) {
             VertexType mask = 1 << seed_slice;
             for(std::size_t i = 0; i < ktrotter_slices; ++i) {
-                mask = Rotate(mask, direction);
+                mask = direction == 1 ? RotateL(mask, 1) : RotateR(mask, 1);
                 if(spins & mask && rng_.Probability() < growth_prob) {
                     cluster |= mask;
                 } else {
