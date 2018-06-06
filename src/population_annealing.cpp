@@ -95,62 +95,6 @@ double PopulationAnnealing::ProblemHamiltonian(const StateVector& replica) {
     return energy;
 }
 
-// double PopulationAnnealing::SliceProblemHamiltonian(StateVector& replica, int slice) {
-//     return (structure_.Adjacent().triangularView<Eigen::Upper>() * GetTrotterSlice(replica, slice).cast<EdgeType>()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>());
-// }
-
-// double PopulationAnnealing::DeltaProblemEnergy(StateVector& replica, int vertex) {
-//     auto slice = vertex / structure_.size();
-//     return -2 * replica(vertex) * (structure_.Adjacent().innerVector(vertex % structure_.size()).dot(GetTrotterSlice(replica, slice).cast<EdgeType>()) - structure_.Fields()(vertex % structure_.size()));
-// }
-
-// double PopulationAnnealing::DeltaDriverEnergy(StateVector& replica, int vertex) {
-//     auto slice = vertex / structure_.size();
-//     auto stride = structure_.size();
-//     return -2 * replica(vertex) * ( replica((slice + stride)%replica.size()) + replica(((slice + replica.size()) - stride)%replica.size()) );
-// }
-
-// void PopulationAnnealing::WolffSweep(StateVector& replica, int moves) {
-//     std::vector<char> cluster(ktrotter_slices);
-//     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
-//     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
-//         // Setup
-//         std::fill(cluster.begin(), cluster.end(), 1);
-//         int seed = rng_.Range(replica.size());
-//         int site = seed % structure_.size();
-//         int seed_slice = seed / structure_.size();
-//         double delta_energy = DeltaProblemEnergy(replica, seed);
-//         cluster[seed_slice] = -1;
-
-//         // Grow cluster upwards and downwards
-//         for(auto direction : {1, -1}) {
-//             int prev_slice = seed_slice;
-//             for(int next_slice = (prev_slice + direction + ktrotter_slices)%ktrotter_slices; cluster[next_slice] == 1;
-//                 next_slice = (prev_slice + direction + ktrotter_slices)%ktrotter_slices) {
-
-//                 int prev_spin = prev_slice * structure_.size() + site;
-//                 int next_spin = next_slice * structure_.size() + site;
-
-//                 if(replica(next_spin) == replica(prev_spin) && rng_.Probability() < growth_prob) {
-//                     cluster[next_slice] = -1;
-//                     delta_energy += DeltaProblemEnergy(replica, next_spin);
-//                 }else {
-//                     break;
-//                 }
-//                 prev_slice = next_slice;
-//             }
-//         }
-        
-//         // Attempt to flip
-//         delta_energy *= coeff_P_;
-//         if(MetropolisAcceptedMove(delta_energy)) {
-//             for(std::size_t i = 0; i < cluster.size(); ++i) {
-//                 replica(i * structure_.size() + site) *= cluster[i];
-//             }
-//         }
-//     }
-// }
-
 void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
