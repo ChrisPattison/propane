@@ -51,7 +51,6 @@ protected:
 
     int init_population_;
     int average_population_;
-    int trotter_slices_;
     std::vector<Schedule> schedule_;
     // This should have getters and setters
     // Write only through setparams

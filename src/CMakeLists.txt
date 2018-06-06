@@ -1,3 +1,11 @@
+if(NOT PSQA_TROTTERSLICES)
+    set(PSQA_TROTTERSLICES 64
+        CACHE STRING "Set number of trotter slices. Must be in {16, 32, 64}"
+        FORCE)
+endif()
+add_definitions(-DPSQA_TROTTERSLICES=${PSQA_TROTTERSLICES})
+message("* Using ${PSQA_TROTTERSLICES} Trotter slices")
+
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 string(TIMESTAMP BUILD_TIME UTC)
@@ -11,6 +19,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(dSFMT)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dSFMT)
+add_definitions(-DDSFMT_MEXP=19937)
 
 add_executable(
     psqa_solve 
@@ -31,7 +40,7 @@ install(TARGETS psqa_solve
 )
 
 set_target_properties(psqa_solve PROPERTIES
-    CXX_STANDARD 14
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
 )

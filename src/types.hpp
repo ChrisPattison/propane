@@ -24,15 +24,27 @@
  
 #pragma once
 #include <cstdint>
+#include <type_traits>
 
 namespace psqa {
-    
-using VertexType = std::uint64_t;
+
+#ifndef PSQA_TROTTERSLICES
+    #warning "PSQA_TROTTERSLICES not defined. Assuming 64. Valid values are {16, 32, 64}"
+    #define PSQA_TROTTERSLICES 64
+#endif
+
+static constexpr std::uint32_t ktrotter_slices = PSQA_TROTTERSLICES;
+
+using VertexType = 
+    std::conditional_t<ktrotter_slices == 32, std::uint32_t,
+    std::conditional_t<ktrotter_slices == 16, std::uint16_t, 
+    std::uint64_t>>;
+static_assert(ktrotter_slices == 16 || ktrotter_slices == 32 || ktrotter_slices == 64, "PSQA_TROTTERSLICES must be in {16, 32, 64}");
+
 using EdgeType = double;
 using IndexType = std::size_t;
 const double kEpsilon = 1e-13;
 
-static constexpr unsigned int ktrotter_slices = 64;
 
 /** Map bit masked value to +/- 1
  */
