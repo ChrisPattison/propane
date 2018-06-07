@@ -124,7 +124,7 @@ void SpatialSiteEnergy(const StateVector& replica, std::uint32_t site, random_ac
 /** Return the problem energy for each trotter slice
  */
 template<typename random_access_iterator>
-void SpatialProblemHamiltonain(const StateVector& replica, random_access_iterator it) {
+void SpatialProblemHamiltonian(const StateVector& replica, random_access_iterator it) {
     std::fill(it, it + ktrotter_slices, 0);
     for(std::size_t site = 0; site < structure_.size(); ++site) {
         for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {

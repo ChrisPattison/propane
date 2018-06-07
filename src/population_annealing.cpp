@@ -99,10 +99,10 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
 
-        std::uint32_t seed = rng_.Range(replica.size());
+        std::uint32_t seed = rng_.Range(structure_.size() * ktrotter_slices);
         std::uint32_t site = seed % structure_.size();
         std::uint32_t seed_slice = seed / structure_.size();
-        VertexType cluster = 1 << seed_slice;
+        VertexType cluster = 1U << seed_slice;
         VertexType spins = replica[site];
         // Spins of the same parity evaluate to true
         spins = (spins & cluster) ? spins : !spins;
@@ -110,7 +110,7 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         // Build Cluster
         // Note: it may be faster to evaluate growth prob all at once
         for(auto direction : {1, -1}) {
-            VertexType mask = 1 << seed_slice;
+            VertexType mask = 1U << seed_slice;
             for(std::size_t i = 0; i < ktrotter_slices; ++i) {
                 mask = direction == 1 ? RotateL(mask, 1) : RotateR(mask, 1);
                 if(spins & mask && rng_.Probability() < growth_prob) {
@@ -186,7 +186,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         if(step.compute_observables) {
             energy.resize(replicas_.size() * ktrotter_slices);
             for(std::size_t k = 0; k < replicas_.size(); ++k) {
-                SpatialProblemHamiltonain(replicas_[k], energy.begin() + k * ktrotter_slices);
+                SpatialProblemHamiltonian(replicas_[k], energy.begin() + k * ktrotter_slices);
             }
             // Basic observables
             observables.average_energy = std::accumulate(energy.begin(), energy.end(), 0.0)/energy.size();
@@ -216,15 +216,6 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
     }
     return results;
 }
-
-// bool PopulationAnnealing::MetropolisAcceptedMove(double delta_energy) {
-//     if(delta_energy < 0.0) {
-//         return true;
-//     }
-    
-//     double acceptance_prob_exp = -delta_energy*beta_;
-//     return AcceptedMove(acceptance_prob_exp);
-// }
 
 bool PopulationAnnealing::AcceptedMove(double log_probability) {
     double test = rng_.Probability();

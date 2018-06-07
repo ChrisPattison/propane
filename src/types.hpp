@@ -56,7 +56,7 @@ template<typename functor, typename bitvector, typename accumulate>
 auto EvalFunctor(bitvector value, functor function, accumulate init) {
     auto accumulator = init;
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        accumulator += function(GetValue(k & 1U));
+        accumulator += function(GetValue(value & 1U));
         value >>= 1;
     }
     return accumulator;
@@ -66,7 +66,7 @@ auto EvalFunctor(bitvector value, functor function, accumulate init) {
 template<typename functor, typename bitvector>
 void EvalFunctor(bitvector value, functor function) {
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        function(GetValue(k & 1U));
+        function(GetValue(value & 1U));
         value >>= 1;
     }
 }
