@@ -31,7 +31,7 @@
 
 namespace psqa { namespace io {   
 void Header(Graph& model, std::string config_path, std::string bond_path) {
-    std::cout << "# Parallel Optimized Population Annealing V" << version::kMajor << "." << version::kMinor << std::endl;
+    std::cout << "# Population Simulated Quantum Annealing" << std::endl;
     std::cout << "# C. Pattison" << std::endl;
     std::cout << "# Branch: " << version::kRefSpec << std::endl;
     std::cout << "# Commit: " << version::kCommitHash << std::endl;
