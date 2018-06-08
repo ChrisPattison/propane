@@ -67,11 +67,31 @@ auto EvalFunctor(bitvector value, functor function, accumulate init) {
     return accumulator;
 }
 /** Call functor on each value of the multi spin coded bit vector
+ * Passes the index of the value as the first argument
+ */
+template<typename functor, typename bitvector, typename accumulate>
+auto EvalFunctorIndexed(bitvector value, functor function, accumulate init) {
+    auto accumulator = init;
+    for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
+        accumulator += function(k, GetValue(value & (1U<<k)));
+    }
+    return accumulator;
+}
+/** Call functor on each value of the multi spin coded bit vector
  */
 template<typename functor, typename bitvector>
 void EvalFunctor(bitvector value, functor function) {
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
         function(GetValue(value & (1U<<k)));
+    }
+}
+/** Call functor on each value of the multi spin coded bit vector
+ * Passes the index of the value as the first argument
+ */
+template<typename functor, typename bitvector>
+void EvalFunctorIndexed(bitvector value, functor function) {
+    for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
+        function(k, GetValue(value & (1U<<k)));
     }
 }
 /** Rotate value

@@ -113,13 +113,11 @@ void SpatialSiteEnergy(const StateVector& replica, std::uint32_t site, random_ac
     for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
         auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
         auto weight = structure_.weights()[site][edge];
-        auto temporal = it;
-        EvalFunctor(parity, [&](const auto& v) { *temporal++ += v*weight; });
+        EvalFunctorIndexed(parity, [&](auto i, const auto& v) { *(it+i) += v*weight; });
     }
 
-    auto temporal = it;
     auto field = structure_.fields()[site];
-    EvalFunctor(replica[site], [&](const auto& v) { *temporal++ += v*field; });
+    EvalFunctorIndexed(replica[site], [&](auto i, const auto& v) { *(it+i) += v*field; });
 }
 /** Return the problem energy for each trotter slice
  */
@@ -130,8 +128,7 @@ void SpatialProblemHamiltonian(const StateVector& replica, random_access_iterato
         for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
             auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
             auto weight = structure_.weights()[site][edge];
-            auto temporal = it;
-            EvalFunctor(parity, [&](const auto& v) { *temporal++ += v*weight; });
+            EvalFunctorIndexed(parity, [&](auto i, const auto& v) { *(it+i) += v*weight; });
         }
     }
 
@@ -139,8 +136,7 @@ void SpatialProblemHamiltonian(const StateVector& replica, random_access_iterato
 
     for(std::size_t site = 0; site < structure_.size(); ++site) {
         auto field = structure_.fields()[site];
-        auto temporal = it;
-        EvalFunctor(replica[site], [&](const auto& v) { *temporal++ += v*field; });
+        EvalFunctorIndexed(replica[site], [&](auto i, const auto& v) { *(it+i) += v*field; });
     }
 }
 
