@@ -19,48 +19,53 @@ message("* Using interprocedural optimizations : ${IPO_SUPPORTED}")
 set(SHARED_FAST_FLAGS "-march=native")
 
 # -------- Fast
+if(NOT CMAKE_CXX_FLAGS_FAST)
+    set(CMAKE_CXX_FLAGS_FAST "-Wall ${SHARED_FAST_FLAGS} -O3 -DNDEBUG" CACHE STRING
+        "Flags used by the C++ compiler during fast release builds."
+        FORCE)
+endif()
 
-set(CMAKE_CXX_FLAGS_FAST "-Wall ${SHARED_FAST_FLAGS} -O3 -DNDEBUG" CACHE STRING
-    "Flags used by the C++ compiler during fast release builds."
-    FORCE)
+if(NOT CMAKE_EXE_LINKER_FLAGS_FAST)
+    SET( CMAKE_EXE_LINKER_FLAGS_FAST
+        "" CACHE STRING
+        "Flags used for linking binaries during fast release builds."
+        FORCE )
+endif()
 
-SET( CMAKE_C_FLAGS_FAST "-Wall ${SHARED_FAST_FLAGS} -O3 -DNDEBUG" CACHE STRING
-    "Flags used by the C compiler during fast release builds."
-    FORCE )
-
-SET( CMAKE_EXE_LINKER_FLAGS_FAST
-    "" CACHE STRING
-    "Flags used for linking binaries during fast release builds."
-    FORCE )
-
-SET( CMAKE_SHARED_LINKER_FLAGS_FAST
-    "" CACHE STRING
-    "Flags used by the shared libraries linker during fast release builds."
-    FORCE )
-
+if(NOT CMAKE_SHARED_LINKER_FLAGS_FAST)
+    SET( CMAKE_SHARED_LINKER_FLAGS_FAST
+        "" CACHE STRING
+        "Flags used by the shared libraries linker during fast release builds."
+        FORCE )
+endif()
 # -------- Fast Debug
 
-SET( CMAKE_CXX_FLAGS_FASTDEBUG "-Wall ${SHARED_FAST_FLAGS} -g -O2" CACHE STRING 
-    "Flags used by the C++ compiler during fast debugging builds." 
-    FORCE )
+if(NOT CMAKE_CXX_FLAGS_FASTDEBUG)
+    SET( CMAKE_CXX_FLAGS_FASTDEBUG "-Wall ${SHARED_FAST_FLAGS} -g -O2" CACHE STRING 
+        "Flags used by the C++ compiler during fast debugging builds." 
+        FORCE )
+endif()
 
-SET( CMAKE_C_FLAGS_FASTDEBUG "-Wall ${SHARED_FAST_FLAGS} -g -O2" CACHE STRING
-    "Flags used by the C compiler during fast debugging builds."
-    FORCE )
+if(NOT CMAKE_EXE_LINKER_FLAGS_FASTDEBUG)
+    SET( CMAKE_EXE_LINKER_FLAGS_FASTDEBUG
+        "" CACHE STRING
+        "Flags used for linking binaries during fast debugging builds."
+        FORCE )
+endif()
 
-SET( CMAKE_EXE_LINKER_FLAGS_FASTDEBUG
-    "" CACHE STRING
-    "Flags used for linking binaries during fast debugging builds."
-    FORCE )
+if(NOT CMAKE_SHARED_LINKER_FLAGS_FASTDEBUG)
+    SET( CMAKE_SHARED_LINKER_FLAGS_FASTDEBUG
+        "" CACHE STRING
+        "Flags used by the shared libraries linker during fast debugging builds."
+        FORCE )
+endif()
 
-SET( CMAKE_SHARED_LINKER_FLAGS_FASTDEBUG
-    "" CACHE STRING
-    "Flags used by the shared libraries linker during fast debugging builds."
-    FORCE )
 MARK_AS_ADVANCED (
+    CMAKE_CXX_FLAGS_FAST
     CMAKE_CXX_FLAGS_FASTDEBUG
-    CMAKE_C_FLAGS_FASTDEBUG
+    CMAKE_EXE_LINKER_FLAGS_FAST
     CMAKE_EXE_LINKER_FLAGS_FASTDEBUG
+    CMAKE_SHARED_LINKER_FLAGS_FAST
     CMAKE_SHARED_LINKER_FLAGS_FASTDEBUG )
 
 # -------- Build Type
