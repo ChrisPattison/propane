@@ -148,10 +148,9 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         std::array<double, ktrotter_slices> site_delta_energy;
         SpatialSiteEnergy(replica, site, site_delta_energy.begin());
         double delta_energy = 0;
-        VertexType mask = 1;
         for(std::size_t i = 0; i < ktrotter_slices; ++i) {
+            VertexType mask = 1U << i;
             delta_energy += mask & cluster ? site_delta_energy[i] : 0;
-            mask <<= 1;
         }
         delta_energy += structure_.fields()[site] * GetValue(cluster & replica[site]) * PopCount(spins & cluster);
         delta_energy *= -2 * coeff_P_;

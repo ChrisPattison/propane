@@ -56,8 +56,7 @@ template<typename functor, typename bitvector, typename accumulate>
 auto EvalFunctor(bitvector value, functor function, accumulate init) {
     auto accumulator = init;
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        accumulator += function(GetValue(value & 1U));
-        value >>= 1;
+        accumulator += function(GetValue(value & (1U<<k)));
     }
     return accumulator;
 }
@@ -66,12 +65,11 @@ auto EvalFunctor(bitvector value, functor function, accumulate init) {
 template<typename functor, typename bitvector>
 void EvalFunctor(bitvector value, functor function) {
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        function(GetValue(value & 1U));
-        value >>= 1;
+        function(GetValue(value & (1U<<k)));
     }
 }
 /** Rotate value
- */
+i */
 template<typename value_type, typename = std::enable_if_t<std::is_unsigned<value_type>::value>>
 value_type RotateL(value_type x, int n) {
     return (x << n) | (x >> ( -n & (ktrotter_slices - 1)));
