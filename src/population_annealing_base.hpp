@@ -25,6 +25,7 @@
 #pragma once
 #include <vector>
 #include <limits>
+#include "types.hpp"
 
 namespace psqa  {
     
@@ -40,9 +41,9 @@ class PopulationAnnealingBase {
         double lambda = std::numeric_limits<double>::quiet_NaN();
         int population = -1;
         double norm_factor = std::numeric_limits<double>::quiet_NaN();
-        double average_energy = std::numeric_limits<double>::quiet_NaN();
-        double average_squared_energy = std::numeric_limits<double>::quiet_NaN();
-        double ground_energy = std::numeric_limits<double>::quiet_NaN();
+        EnergyType average_energy = std::numeric_limits<double>::quiet_NaN();
+        EnergyType average_squared_energy = std::numeric_limits<double>::quiet_NaN();
+        EnergyType ground_energy = std::numeric_limits<double>::quiet_NaN();
         int grounded_replicas = 0;
         double entropy = std::numeric_limits<double>::quiet_NaN();
         std::uint64_t seed = 0;

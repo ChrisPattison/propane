@@ -64,12 +64,12 @@ PopulationAnnealing::PopulationAnnealing(Graph& structure, Config config) {
     init_population_ = average_population_;
  }
 
-double PopulationAnnealing::Hamiltonian(const StateVector& replica) {
+EnergyType PopulationAnnealing::Hamiltonian(const StateVector& replica) {
     return coeff_P_ * ProblemHamiltonian(replica) + coeff_D_ * DriverHamiltonian(replica);
 }
 
-double PopulationAnnealing::DriverHamiltonian(const StateVector& replica) {
-    double energy = 0;
+EnergyType PopulationAnnealing::DriverHamiltonian(const StateVector& replica) {
+    EnergyType energy = 0;
     for(std::size_t site = 0; site < structure_.size(); ++site) {
         auto parity = replica[site] ^ RotateL(replica[site], 1);
         energy += EvalFunctor(parity, [&](const auto& v) { return v; }, 0);
@@ -77,8 +77,8 @@ double PopulationAnnealing::DriverHamiltonian(const StateVector& replica) {
     return energy;
 }
 
-double PopulationAnnealing::ProblemHamiltonian(const StateVector& replica) {
-    double energy = 0;
+EnergyType PopulationAnnealing::ProblemHamiltonian(const StateVector& replica) {
+    EnergyType energy = 0;
     for(std::size_t site = 0; site < structure_.size(); ++site) {
         for(std::size_t edge = 0; edge < structure_.adjacent()[site].size(); ++edge) {
             auto parity = replica[site] ^ replica[structure_.adjacent()[site][edge]];
@@ -145,9 +145,9 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         }
 
         // Compute spatial energy delta
-        std::array<double, ktrotter_slices> site_delta_energy;
+        std::array<EnergyType, ktrotter_slices> site_delta_energy;
         SpatialSiteEnergy(replica, site, site_delta_energy.begin());
-        double delta_energy = 0;
+        EnergyType delta_energy = 0;
         VertexType mask = 1;
         for(std::size_t i = 0; i < ktrotter_slices; ++i) {
             delta_energy += mask & cluster ? site_delta_energy[i] : 0;
@@ -180,7 +180,7 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
 
     std::iota(replica_families_.begin(), replica_families_.end(), 0);
     SetParams(schedule_.front().beta, schedule_.front().gamma, schedule_.front().lambda);
-    std::vector<double> energy;
+    std::vector<EnergyType> energy;
 
     auto total_time_start = std::chrono::high_resolution_clock::now();
     unsigned long long int total_sweeps = 0;

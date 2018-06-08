@@ -32,6 +32,11 @@ namespace psqa {
     #warning "PSQA_TROTTERSLICES not defined. Assuming 64. Valid values are {16, 32, 64}"
     #define PSQA_TROTTERSLICES 64
 #endif
+#ifdef PSQA_FLOATENERGY
+    using EnergyType = float;
+#else
+    using EnergyType = double;
+#endif
 
 static constexpr std::uint32_t ktrotter_slices = PSQA_TROTTERSLICES;
 
@@ -41,7 +46,8 @@ using VertexType =
     std::uint64_t>>;
 static_assert(ktrotter_slices == 16 || ktrotter_slices == 32 || ktrotter_slices == 64, "PSQA_TROTTERSLICES must be in {16, 32, 64}");
 
-using EdgeType = double;
+
+using EdgeType = EnergyType;
 using IndexType = std::size_t;
 const double kEpsilon = 1e-13;
 

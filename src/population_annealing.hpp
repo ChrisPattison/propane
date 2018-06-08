@@ -74,13 +74,13 @@ protected:
  * product of matrix multiplication between the upper half of the adjacency matrix
  * and the replica.
  */
-    double Hamiltonian(const StateVector& replica);
+    EnergyType Hamiltonian(const StateVector& replica);
 /** Returns problem energy without weight factor (zeta)
  */
-    double ProblemHamiltonian(const StateVector& replica);
+    EnergyType ProblemHamiltonian(const StateVector& replica);
 /** Returns driver energy without weight factor (gamma)
  */
-    double DriverHamiltonian(const StateVector& replica);
+    EnergyType DriverHamiltonian(const StateVector& replica);
 /** Carries out moves*quantum sites Wolff cluster moves of replica
  */
     void WolffSweep(StateVector& replica, std::size_t moves);
