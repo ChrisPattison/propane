@@ -109,7 +109,7 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         VertexType seed_mask = 1U << seed_slice;
         VertexType spins = replica[site];
         // Spins of the same parity evaluate to true
-        spins = (spins & seed_mask) ? spins : !spins;
+        spins = (spins & seed_mask) ? spins : ~spins;
 
         // Build Cluster
         // Eval grow prob first
