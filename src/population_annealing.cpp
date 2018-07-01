@@ -108,12 +108,12 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         std::uint32_t seed_slice = seed / structure_.size();
         VertexType seed_mask = 1U << seed_slice;
         VertexType spins = replica[site];
-        // Spins of the same parity evaluate to true
+        // Spins of the parity we are interested in are set
         spins = (spins & seed_mask) ? spins : ~spins;
 
         // Build Cluster
         // Eval grow prob first
-        // 0th bit is set if cluster spans 0th and 1st spin
+        // 0th bit is set if cluster could span 0th and 1st spin
         VertexType unconstrained_growth = 0;
         for(std::size_t i = 0; i < ktrotter_slices; ++i) {
             if(random[i + random_offset] < growth_prob) {
@@ -127,7 +127,7 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         VertexType cluster = seed_mask;
         // All spins in the cluster have a set bit
         // This will eventually be done by counting trailing/leading zeros (clz)
-        for(std::size_t i = 0; i < ktrotter_slices; ++i) {
+        for(std::size_t i = 0; i < ktrotter_slices - 1; ++i) {
             VertexType mask = RotateL(seed_mask, i);
             if(mask & constrained_growth) {
                 cluster |= RotateL(mask, 1);
@@ -135,10 +135,10 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
                 break;
             }
         }
-        for(std::size_t i = 0; i < ktrotter_slices; ++i) {
-            VertexType mask = RotateR(seed_mask, i);
+        for(std::size_t i = 0; i < ktrotter_slices - 1; ++i) {
+            VertexType mask = RotateR(seed_mask, i + 1);
             if(mask & constrained_growth) {
-                cluster |= RotateR(mask, 1);
+                cluster |= mask;
             } else {
                 break;
             }
@@ -152,11 +152,10 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
             VertexType mask = 1U << i;
             delta_energy += mask & cluster ? site_delta_energy[i] : 0;
         }
-        delta_energy += structure_.fields()[site] * GetValue(cluster & replica[site]) * PopCount(spins & cluster);
         delta_energy *= -2 * coeff_P_;
 
         // Flip cluster
-        if(AcceptedMove(-delta_energy*beta_)) {
+        if(AcceptedMove(delta_energy*beta_)) {
             replica[site] ^= cluster;
         }
     }
