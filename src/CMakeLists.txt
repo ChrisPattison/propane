@@ -1,22 +1,3 @@
-if(NOT PSQA_TROTTERSLICES)
-    set(PSQA_TROTTERSLICES 64
-        CACHE STRING "Set number of trotter slices. Must be in {16, 32, 64}"
-        FORCE)
-endif()
-add_definitions(-DPSQA_TROTTERSLICES=${PSQA_TROTTERSLICES})
-message("* Using ${PSQA_TROTTERSLICES} Trotter slices")
-
-if(NOT PSQA_FLOATENERGY)
-    set(PSQA_FLOATENERGY OFF
-        CACHE STRING "Use single precision floating point for energy calculations"
-        FORCE)
-endif()
-
-if(PSQA_FLOATENERGY)
-    add_definitions(-DPSQA_FLOATENERGY)
-    message("* Using single precision floating point for energy")
-endif()
-
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 string(TIMESTAMP BUILD_TIME UTC)
@@ -30,7 +11,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(dSFMT)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dSFMT)
-add_definitions(-DDSFMT_MEXP=19937)
 
 set(SRCS
     graph.cpp 

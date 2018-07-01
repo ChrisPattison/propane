@@ -78,6 +78,27 @@ endif()
 
 message("* Current build type is : ${CMAKE_BUILD_TYPE}")
 
+add_definitions(-DDSFMT_MEXP=19937)
+
+if(NOT PSQA_TROTTERSLICES)
+    set(PSQA_TROTTERSLICES 64
+        CACHE STRING "Set number of trotter slices. Must be in {16, 32, 64}"
+        FORCE)
+endif()
+add_definitions(-DPSQA_TROTTERSLICES=${PSQA_TROTTERSLICES})
+message("* Using ${PSQA_TROTTERSLICES} Trotter slices")
+
+if(NOT PSQA_FLOATENERGY)
+    set(PSQA_FLOATENERGY OFF
+        CACHE STRING "Use single precision floating point for energy calculations"
+        FORCE)
+endif()
+
+if(PSQA_FLOATENERGY)
+    add_definitions(-DPSQA_FLOATENERGY)
+    message("* Using single precision floating point for energy")
+endif()
+
 subdirs(src doc test)
 
 message("* Build docs with 'make doc'")
