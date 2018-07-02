@@ -96,51 +96,33 @@ EnergyType PopulationAnnealing::ProblemHamiltonian(const StateVector& replica) {
 }
 
 void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
-    std::vector<double> random(replica.size() * moves * ktrotter_slices);
-    std::generate(random.begin(), random.end(), [&]() { return rng_(); });
-
     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
-        std::size_t random_offset = ktrotter_slices * k;
+        
+        std::array<bool, ktrotter_slices> grow;
+        for(std::size_t i = 0; i < ktrotter_slices; ++i) {
+            grow[i] = rng_() < growth_prob;
+        }
 
         std::uint32_t seed = rng_.Range(structure_.size() * ktrotter_slices);
         std::uint32_t site = seed % structure_.size();
         std::uint32_t seed_slice = seed / structure_.size();
-        VertexType seed_mask = 1U << seed_slice;
-        VertexType spins = replica[site];
-        // Spins of the parity we are interested in are set
-        spins = (spins & seed_mask) ? spins : ~spins;
+        VertexType site_value = replica[site];
 
+        VertexType cluster = 1U << seed_slice;
+        VertexType prev_mask =  cluster;
         // Build Cluster
-        // Eval grow prob first
-        // 0th bit is set if cluster could span 0th and 1st spin
-        VertexType unconstrained_growth = 0;
-        for(std::size_t i = 0; i < ktrotter_slices; ++i) {
-            if(random[i + random_offset] < growth_prob) {
-                unconstrained_growth |= 1 << i;
+        for(std::size_t i = (seed_slice + 1)%ktrotter_slices; i != seed_slice; i = (i+1)%ktrotter_slices) {
+            VertexType next_mask = 1U << i;
+            if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
+                cluster |= next_mask;
             }
         }
-        // 0th bit set if spins 0 and 1 are opposing
-        VertexType boundaries = (RotateR(spins, 1) ^ spins);
-        // 0th bit set if cluster grows from 0th to 1st spin
-        VertexType constrained_growth = unconstrained_growth & ~boundaries;
-        VertexType cluster = seed_mask;
-        // All spins in the cluster have a set bit
-        // This will eventually be done by counting trailing/leading zeros (clz)
-        for(std::size_t i = 0; i < ktrotter_slices - 1; ++i) {
-            VertexType mask = RotateL(seed_mask, i);
-            if(mask & constrained_growth) {
-                cluster |= RotateL(mask, 1);
-            } else {
-                break;
-            }
-        }
-        for(std::size_t i = 0; i < ktrotter_slices - 1; ++i) {
-            VertexType mask = RotateR(seed_mask, i + 1);
-            if(mask & constrained_growth) {
-                cluster |= mask;
-            } else {
-                break;
+        for(std::size_t i = (seed_slice + ktrotter_slices - 1)%ktrotter_slices; 
+            i != seed_slice; i = (i+ ktrotter_slices - 1)%ktrotter_slices) {
+            VertexType next_mask = 1U << i;
+            if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
+                cluster |= next_mask;
             }
         }
 
@@ -153,9 +135,9 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
             delta_energy += mask & cluster ? site_delta_energy[i] : 0;
         }
         delta_energy *= -2 * coeff_P_;
-
+        
         // Flip cluster
-        if(AcceptedMove(delta_energy*beta_)) {
+        if(AcceptedMove(-delta_energy*beta_)) {
             replica[site] ^= cluster;
         }
     }
