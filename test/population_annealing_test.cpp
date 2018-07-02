@@ -76,7 +76,7 @@ protected:
             }
             delta_energy *= -2 * uut->coeff_P_;
             // Attempt flip
-            if(uut->AcceptedMove(delta_energy*uut->beta_)) {
+            if(uut->AcceptedMove(-delta_energy*uut->beta_)) {
                 replica[site] ^= cluster;
             }
         }
@@ -107,6 +107,9 @@ public:
 
     virtual void SetUp() {
         test_state.resize(2, 0);
+        uut->beta_ = 1.0;
+        uut->coeff_P_ = 1.0;
+        uut->coeff_D_ = -1.0;
     }
 
     virtual void TearDown() {
@@ -114,7 +117,10 @@ public:
     }
 };
 
+/** At low temperature in the GS, nothing should change
+ */
 TEST_F(WolffTest, ClusterFreeze) {
+    uut->beta_ = 10.0;
     test_state[0] = ~test_state[0];
     uut->WolffSweep(test_state, 10);
     for(auto& v : test_state) {
@@ -122,16 +128,19 @@ TEST_F(WolffTest, ClusterFreeze) {
     }
 }
 
+/** Quench a random config with a strong field
+ */
 TEST_F(WolffTest, ClusterQuench) {
+    uut->beta_ = 10.0;
     test_state[0] = random();
     uut->WolffSweep(test_state, 1000);
     ASSERT_EQ(test_state[0] & 1 ? ~test_state[0] : test_state[0], 0);
 }
 
+/** Check against the reference implementation
+ */
 TEST_F(WolffTest, ClusterReference) {
     auto seed = std::random_device()();
-    uut->beta_ = 0.1;
-    uut->coeff_D_ = -0.5;
 
     std::generate(test_state.begin(), test_state.end(), random);
     auto ref_state = test_state;
