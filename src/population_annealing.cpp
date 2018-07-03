@@ -109,18 +109,18 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         std::uint32_t seed_slice = seed / structure_.size();
         VertexType site_value = replica[site];
 
-        VertexType cluster = 1U << seed_slice;
+        VertexType cluster = static_cast<VertexType>(1U) << seed_slice;
         VertexType prev_mask =  cluster;
         // Build Cluster
         for(std::size_t i = (seed_slice + 1)%ktrotter_slices; i != seed_slice; i = (i+1)%ktrotter_slices) {
-            VertexType next_mask = 1U << i;
+            VertexType next_mask = static_cast<VertexType>(1U) << i;
             if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
                 cluster |= next_mask;
             }
         }
         for(std::size_t i = (seed_slice + ktrotter_slices - 1)%ktrotter_slices; 
             i != seed_slice; i = (i+ ktrotter_slices - 1)%ktrotter_slices) {
-            VertexType next_mask = 1U << i;
+            VertexType next_mask = static_cast<VertexType>(1U) << i;
             if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
                 cluster |= next_mask;
             }
@@ -131,7 +131,7 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         SpatialSiteEnergy(replica, site, site_delta_energy.begin());
         EnergyType delta_energy = 0;
         for(std::size_t i = 0; i < ktrotter_slices; ++i) {
-            VertexType mask = 1U << i;
+            VertexType mask = static_cast<VertexType>(1U) << i;
             delta_energy += mask & cluster ? site_delta_energy[i] : 0;
         }
         delta_energy *= -2 * coeff_P_;
