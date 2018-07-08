@@ -89,10 +89,10 @@ void ConfigParse(std::istream& file, PopulationAnnealing::Config* config) {
         config->population = tree.get<int>("population");
         std::stringstream converter(tree.get<std::string>("seed", "0"));
         converter >> std::hex >> config->seed;
-        int default_sweeps = tree.get<int>("default_sweeps", 10);
-        int default_wolff = tree.get<int>("default_wolff", 0);
-        config->solver_mode = tree.get<bool>("solver_mode", false);
-        config->trotter_slices = tree.get<int>("trotter_slices");
+        int default_sweeps = tree.get<int>("default_sweeps", 0);
+        int default_wolff = tree.get<int>("default_wolff", 1);
+        config->solver_mode = tree.get<bool>("solver_mode", true);
+        config->trotter_slices = tree.get<int>("trotter_slices", 64);
         for(auto& item : tree.get_child("schedule")) {
             config->schedule.emplace_back();
             config->schedule.back().beta = item.second.get<double>("beta");
