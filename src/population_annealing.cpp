@@ -172,8 +172,11 @@ std::vector<PopulationAnnealing::Result> PopulationAnnealing::Run() {
         r = StateVector();
         r.resize(structure_.size());
         for(std::size_t k = 0; k < r.size(); ++k) {
-            static_assert(sizeof(decltype(r[k])) == 8);
-            r[k] = rng_() ^ (static_cast<std::uint64_t>(rng_()) << 32);
+            static_assert(sizeof(decltype(r[k])) <= 8);
+            r[k] = rng_();
+            if(sizeof(VertexType) > 4) {
+                r[k] ^= (static_cast<std::uint64_t>(rng_()) << 32);
+            }
         }
     }
 
