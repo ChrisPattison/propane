@@ -45,7 +45,7 @@ using VertexType =
     std::conditional_t<ktrotter_slices == 16, std::uint16_t, 
     std::uint64_t>>;
 static_assert(ktrotter_slices == 16 || ktrotter_slices == 32 || ktrotter_slices == 64, "PSQA_TROTTERSLICES must be in {16, 32, 64}");
-
+static_assert(sizeof(VertexType) * 8 == ktrotter_slices, "Number of bits in VertexType does not match ktrotter_slices");
 
 using EdgeType = EnergyType;
 using IndexType = std::size_t;
@@ -62,7 +62,7 @@ template<typename functor, typename bitvector, typename accumulate>
 auto EvalFunctor(bitvector value, functor function, accumulate init) {
     auto accumulator = init;
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        accumulator += function(GetValue(value & (1U<<k)));
+        accumulator += function(GetValue(value & (static_cast<bitvector>(1U)<<k)));
     }
     return accumulator;
 }
@@ -73,7 +73,7 @@ template<typename functor, typename bitvector, typename accumulate>
 auto EvalFunctorIndexed(bitvector value, functor function, accumulate init) {
     auto accumulator = init;
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        accumulator += function(k, GetValue(value & (1U<<k)));
+        accumulator += function(k, GetValue(value & (static_cast<bitvector>(1U)<<k)));
     }
     return accumulator;
 }
@@ -82,7 +82,7 @@ auto EvalFunctorIndexed(bitvector value, functor function, accumulate init) {
 template<typename functor, typename bitvector>
 void EvalFunctor(bitvector value, functor function) {
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        function(GetValue(value & (1U<<k)));
+        function(GetValue(value & (static_cast<bitvector>(1U)<<k)));
     }
 }
 /** Call functor on each value of the multi spin coded bit vector
@@ -91,7 +91,7 @@ void EvalFunctor(bitvector value, functor function) {
 template<typename functor, typename bitvector>
 void EvalFunctorIndexed(bitvector value, functor function) {
     for(std::uint32_t k = 0; k < ktrotter_slices; ++k) {
-        function(k, GetValue(value & (1U<<k)));
+        function(k, GetValue(value & (static_cast<bitvector>(1U)<<k)));
     }
 }
 /** Rotate value
@@ -107,6 +107,7 @@ value_type RotateR(value_type x, int n) {
 }
 template<typename value_type>
 value_type PopCount(value_type x) {
-    return __builtin_popcount(x);
+    static_assert(sizeof(value_type) <= 8, "PopCount only works with <=64 bits");
+    return __builtin_popcountll(x);
 }
 }

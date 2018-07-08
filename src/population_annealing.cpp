@@ -99,32 +99,50 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
     double growth_prob = 1.0 - std::exp(2.0 * beta_ * coeff_D_);
     for(std::size_t k = 0; k < moves * structure_.size(); ++k) {
         
-        std::array<bool, ktrotter_slices> grow;
-        for(std::size_t i = 0; i < ktrotter_slices; ++i) {
-            grow[i] = rng_() < growth_prob;
-        }
-
         std::uint32_t seed = rng_.Range(structure_.size() * ktrotter_slices);
         std::uint32_t site = seed % structure_.size();
         std::uint32_t seed_slice = seed / structure_.size();
-        VertexType site_value = replica[site];
 
         VertexType cluster = static_cast<VertexType>(1U) << seed_slice;
-        VertexType prev_mask =  cluster;
+        VertexType prev_mask = cluster;
         // Build Cluster
-        for(std::size_t i = (seed_slice + 1)%ktrotter_slices; i != seed_slice; i = (i+1)%ktrotter_slices) {
+        // Grow up
+        for(std::size_t i = (seed_slice + 1)%ktrotter_slices; 
+            i != seed_slice; i = (i + 1)%ktrotter_slices) {
+
             VertexType next_mask = static_cast<VertexType>(1U) << i;
-            if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
+
+            assert(PopCount(prev_mask) == 1);
+            assert(i < ktrotter_slices);
+            assert(PopCount(next_mask) == 1);
+            assert(prev_mask != next_mask);
+            if((static_cast<bool>(next_mask & replica[site]) == static_cast<bool>(prev_mask & replica[site])) && rng_() < growth_prob) {
                 cluster |= next_mask;
+            }else {
+                break;
             }
+            prev_mask = next_mask;
         }
-        for(std::size_t i = (seed_slice + ktrotter_slices - 1)%ktrotter_slices; 
-            i != seed_slice; i = (i+ ktrotter_slices - 1)%ktrotter_slices) {
+        // Grow down
+        prev_mask = static_cast<VertexType>(1U) << seed_slice;
+        for(std::size_t i = (seed_slice + ktrotter_slices - 1)%ktrotter_slices;
+            i != seed_slice; i = (i + ktrotter_slices - 1)%ktrotter_slices) {
+
             VertexType next_mask = static_cast<VertexType>(1U) << i;
-            if(grow[i] && (static_cast<bool>(next_mask & site_value) == (prev_mask & site_value))) {
+
+            assert(PopCount(prev_mask) == 1);
+            assert(i < ktrotter_slices);
+            assert(PopCount(next_mask) == 1);
+            assert(prev_mask != next_mask);
+            if((static_cast<bool>(next_mask & replica[site]) == static_cast<bool>(prev_mask & replica[site])) && rng_() < growth_prob) {
                 cluster |= next_mask;
+            }else {
+                break;
             }
+            prev_mask = next_mask;
         }
+        
+        assert(cluster != 0);
 
         // Compute spatial energy delta
         std::array<EnergyType, ktrotter_slices> site_delta_energy;
@@ -132,7 +150,8 @@ void PopulationAnnealing::WolffSweep(StateVector& replica, std::size_t moves) {
         EnergyType delta_energy = 0;
         for(std::size_t i = 0; i < ktrotter_slices; ++i) {
             VertexType mask = static_cast<VertexType>(1U) << i;
-            delta_energy += mask & cluster ? site_delta_energy[i] : 0;
+            assert(PopCount(mask) == 1);
+            delta_energy += (mask & cluster) ? site_delta_energy[i] : 0;
         }
         delta_energy *= -2 * coeff_P_;
         
