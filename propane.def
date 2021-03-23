@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: fedora:32
+
+%setup
+
+%runscript
+propane "$@"
+
+%files
+. /src
+
+%environment
+
+%labels
+
+%post
+
+dnf install -y mpich mpich-devel boost-static boost-devel cmake git gcc-c++ wget bzip2 make
+
+cd /src
+rm -rf build
+mkdir build
+cd build
+
+rm -f *.sif # In case we picked up an image or something
+
+wget https://gitlab.com/libeigen/eigen/-/archive/3.2.10/eigen-3.2.10.tar.bz2
+tar -xjf eigen-3.2.10.tar.bz2
+
+MPI_HOME=/usr/lib64/mpich cmake .. -DEIGEN3_INCLUDE_DIR=../build/eigen-3.2.10
+make
+make install
+
+# clean up for container size
+dnf clean all
+rm -rf /var/cache/yum
